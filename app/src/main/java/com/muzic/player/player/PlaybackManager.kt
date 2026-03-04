@@ -1,8 +1,10 @@
 package com.muzic.player.player
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import androidx.annotation.OptIn
+import androidx.core.content.ContextCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -11,6 +13,8 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
 import com.muzic.player.data.model.Song
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,6 +44,7 @@ class PlaybackManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private var exoPlayer: ExoPlayer? = null
+    private var mediaController: MediaController? = null
     val queueManager = QueueManager()
 
     private val _playbackState = MutableStateFlow(PlaybackState())
@@ -68,12 +73,17 @@ class PlaybackManager @Inject constructor(
                 playWhenReady = false
             }
 
-        // Start playback service to show notification
-        try {
-            val intent = Intent(context, MuzicPlaybackService::class.java)
-            context.startService(intent)
-        } catch (e: Exception) {
-            e.printStackTrace()
+        // Bind MediaController to keep MediaSessionService alive and show notification
+        if (mediaController == null) {
+            val sessionToken = SessionToken(context, ComponentName(context, MuzicPlaybackService::class.java))
+            val controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
+            controllerFuture.addListener({
+                try {
+                    mediaController = controllerFuture.get()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }, ContextCompat.getMainExecutor(context))
         }
 
         return exoPlayer!!
