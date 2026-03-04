@@ -42,8 +42,9 @@ fun MuzicSeekBar(
         SquigglySlider(
             progress = progress.coerceIn(0f, 1f),
             isPlaying = isPlaying,
-            activeColor = MuzicRed,
-            inactiveColor = DarkSurfaceSecondary,
+            activeColor = Color.White,
+            inactiveColor = Color.White.copy(alpha = 0.3f),
+            thumbColor = Color.White,
             onProgressChange = { value ->
                 isDragging = true
                 dragPosition = value
@@ -137,8 +138,8 @@ fun SquigglySlider(
         val width = constraints.maxWidth.toFloat()
         val height = constraints.maxHeight.toFloat()
         val centerY = height / 2f
-        val amplitude = (height / 4f) * amplitudeScale
-        val frequency = 0.04f
+        val amplitude = (height / 5f) * amplitudeScale
+        val frequency = 0.02f
 
         Canvas(modifier = Modifier.fillMaxSize()) {
             val progressWidth = width * progress
@@ -173,8 +174,8 @@ fun SquigglySlider(
 
             drawCircle(
                 color = thumbColor,
-                radius = 7.dp.toPx(),
-                center = Offset(progressWidth.coerceIn(7.dp.toPx(), width - 7.dp.toPx()), thumbY)
+                radius = 10.dp.toPx(),
+                center = Offset(progressWidth.coerceIn(10.dp.toPx(), width - 10.dp.toPx()), thumbY)
             )
         }
     }

@@ -1,6 +1,7 @@
 package com.muzic.player.player
 
 import android.content.Context
+import android.content.Intent
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -66,6 +67,14 @@ class PlaybackManager @Inject constructor(
                 // Enable gapless playback
                 playWhenReady = false
             }
+
+        // Start playback service to show notification
+        try {
+            val intent = Intent(context, MuzicPlaybackService::class.java)
+            context.startService(intent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
         return exoPlayer!!
     }

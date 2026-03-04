@@ -19,8 +19,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 import coil.compose.AsyncImage
 import com.muzic.player.data.model.Song
 import com.muzic.player.ui.theme.*
@@ -38,14 +40,26 @@ fun MiniPlayer(
 ) {
     if (currentSong == null) return
 
+    var offsetY by remember { mutableFloatStateOf(0f) }
+    val animatedOffsetY by animateFloatAsState(targetValue = offsetY, label = "miniplayer_offset")
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp)
+            .offset { IntOffset(0, animatedOffsetY.roundToInt()) }
             .pointerInput(Unit) {
-                detectVerticalDragGestures { _, dragAmount ->
-                    if (dragAmount > 30f) {
-                        onDismiss()
+                detectVerticalDragGestures(
+                    onDragEnd = {
+                        if (offsetY > 150f) {
+                            onDismiss()
+                        }
+                        offsetY = 0f
+                    },
+                    onDragCancel = { offsetY = 0f }
+                ) { change, dragAmount ->
+                    if (dragAmount > 0) { // Only swipe down
+                        offsetY += dragAmount
                     }
                 }
             },

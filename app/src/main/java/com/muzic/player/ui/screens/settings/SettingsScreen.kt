@@ -162,16 +162,6 @@ fun SettingsScreen(
                         subtitle = "Your data is safe with us",
                         onClick = { showPrivacyDialog = true }
                     )
-                    SettingsDivider()
-                    SettingsItem(
-                        icon = Icons.Rounded.Code,
-                        iconTint = AccentPurple,
-                        title = "Developer",
-                        subtitle = "Made by officialtechrom",
-                        onClick = {
-                            Toast.makeText(context, "Made with ❤️ by officialtechrom", Toast.LENGTH_LONG).show()
-                        }
-                    )
                 }
             }
 
