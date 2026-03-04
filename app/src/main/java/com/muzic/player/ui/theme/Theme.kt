@@ -1,8 +1,7 @@
 package com.muzic.player.ui.theme
 
 import android.app.Activity
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
@@ -11,28 +10,26 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val MuzicDarkColorScheme = darkColorScheme(
-    primary = ElectricPurple,
-    onPrimary = Color.White,
-    primaryContainer = DeepIndigo,
-    onPrimaryContainer = SoftWhite,
-    secondary = ElectricPurpleLight,
-    onSecondary = Color.Black,
-    secondaryContainer = DeepIndigoLight,
-    onSecondaryContainer = SoftWhite,
-    tertiary = ElectricPurpleDark,
-    onTertiary = Color.White,
-    background = DarkCharcoal,
-    onBackground = SoftWhite,
+    primary = MuzicRed,
+    onPrimary = TextOnAccent,
+    primaryContainer = MuzicRedDark,
+    onPrimaryContainer = TextPrimary,
+    secondary = AccentPurple,
+    onSecondary = TextOnAccent,
+    secondaryContainer = DarkSurfaceElevated,
+    onSecondaryContainer = TextPrimary,
+    tertiary = AccentBlue,
+    onTertiary = TextOnAccent,
+    background = DarkBg,
+    onBackground = TextPrimary,
     surface = DarkSurface,
-    onSurface = SoftWhite,
-    surfaceVariant = DarkSurfaceVariant,
+    onSurface = TextPrimary,
+    surfaceVariant = DarkSurfaceElevated,
     onSurfaceVariant = TextSecondary,
-    outline = TextTertiary,
-    outlineVariant = DividerColor,
-    error = ErrorRed,
-    onError = Color.White,
-    inverseSurface = SoftWhite,
-    inverseOnSurface = DarkCharcoal
+    outline = DividerColor,
+    outlineVariant = SeparatorColor,
+    error = FavoriteRed,
+    onError = TextOnAccent
 )
 
 @Composable

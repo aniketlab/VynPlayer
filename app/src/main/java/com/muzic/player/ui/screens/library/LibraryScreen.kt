@@ -10,12 +10,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -62,7 +65,6 @@ fun LibraryScreen(
     val pagerState = rememberPagerState(pageCount = { tabs.size })
     val coroutineScope = rememberCoroutineScope()
 
-    // Create playlist dialog
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     var newPlaylistName by remember { mutableStateOf("") }
 
@@ -73,18 +75,16 @@ fun LibraryScreen(
                     Text(
                         text = "Muzic",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 24.sp,
-                        color = SoftWhite,
-                        letterSpacing = 2.sp
+                        fontSize = 28.sp,
+                        color = TextPrimary,
+                        letterSpacing = 1.sp
                     )
                 },
                 actions = {
-                    IconButton(onClick = {
-                        viewModel.refreshLibrary()
-                    }) {
+                    IconButton(onClick = { viewModel.refreshLibrary() }) {
                         Icon(
                             imageVector = Icons.Rounded.Refresh,
-                            contentDescription = "Refresh library",
+                            contentDescription = "Refresh",
                             tint = TextSecondary
                         )
                     }
@@ -97,11 +97,11 @@ fun LibraryScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = DarkCharcoal
+                    containerColor = DarkBg
                 )
             )
         },
-        containerColor = DarkCharcoal
+        containerColor = DarkBg
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -109,7 +109,7 @@ fun LibraryScreen(
                 .padding(paddingValues)
         ) {
             if (!hasPermission) {
-                // Permission required screen
+                // Permission screen
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -120,17 +120,30 @@ fun LibraryScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.padding(32.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.FolderOpen,
-                            contentDescription = null,
-                            tint = ElectricPurple,
-                            modifier = Modifier.size(64.dp)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(
+                                    Brush.linearGradient(
+                                        listOf(MuzicGradientStart, MuzicGradientEnd)
+                                    )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.FolderOpen,
+                                contentDescription = null,
+                                tint = TextPrimary,
+                                modifier = Modifier.size(40.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(20.dp))
                         Text(
                             text = "Permission Required",
                             style = MaterialTheme.typography.headlineSmall,
-                            color = SoftWhite
+                            color = TextPrimary,
+                            fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
@@ -143,27 +156,26 @@ fun LibraryScreen(
                             onClick = {
                                 permissionLauncher.launch(PermissionHelper.getRequiredPermissions())
                             },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = ElectricPurple
-                            )
+                            colors = ButtonDefaults.buttonColors(containerColor = MuzicRed),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text("Grant Permission")
+                            Text("Grant Permission", fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
             } else {
-                // Tab Row
+                // Tab Row - Clean & modern
                 ScrollableTabRow(
                     selectedTabIndex = pagerState.currentPage,
-                    containerColor = DarkCharcoal,
-                    contentColor = SoftWhite,
+                    containerColor = DarkBg,
+                    contentColor = TextPrimary,
                     edgePadding = 16.dp,
                     indicator = { tabPositions ->
                         if (pagerState.currentPage < tabPositions.size) {
                             TabRowDefaults.SecondaryIndicator(
                                 modifier = Modifier.fillMaxWidth(),
-                                color = ElectricPurple,
-                                height = 3.dp
+                                color = MuzicRed,
+                                height = 2.5.dp
                             )
                         }
                     },
@@ -181,7 +193,8 @@ fun LibraryScreen(
                                 Text(
                                     text = title,
                                     fontWeight = if (pagerState.currentPage == index) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (pagerState.currentPage == index) ElectricPurple else TextSecondary
+                                    color = if (pagerState.currentPage == index) MuzicRed else TextSecondary,
+                                    fontSize = 14.sp
                                 )
                             }
                         )
@@ -204,24 +217,24 @@ fun LibraryScreen(
                         1 -> AlbumsTab(
                             albums = uiState.albums,
                             isLoading = uiState.isLoading,
-                            onAlbumClick = { /* Navigate to album detail */ }
+                            onAlbumClick = { }
                         )
                         2 -> ArtistsTab(
                             artists = uiState.artists,
                             isLoading = uiState.isLoading,
-                            onArtistClick = { /* Navigate to artist detail */ }
+                            onArtistClick = { }
                         )
                         3 -> PlaylistsTab(
                             playlists = uiState.playlists,
                             isLoading = uiState.isLoading,
-                            onPlaylistClick = { /* Navigate to playlist detail */ },
+                            onPlaylistClick = { },
                             onCreatePlaylistClick = { showCreatePlaylistDialog = true },
-                            onDeletePlaylistClick = { playlistId -> viewModel.deletePlaylist(playlistId) }
+                            onDeletePlaylistClick = { viewModel.deletePlaylist(it) }
                         )
                         4 -> FoldersTab(
                             folders = uiState.folders,
                             isLoading = uiState.isLoading,
-                            onFolderClick = { /* Navigate to folder detail */ }
+                            onFolderClick = { }
                         )
                     }
                 }
@@ -245,8 +258,10 @@ fun LibraryScreen(
     if (showCreatePlaylistDialog) {
         AlertDialog(
             onDismissRequest = { showCreatePlaylistDialog = false },
+            containerColor = DarkSurface,
+            shape = RoundedCornerShape(20.dp),
             title = {
-                Text("New Playlist", color = SoftWhite)
+                Text("New Playlist", color = TextPrimary, fontWeight = FontWeight.Bold)
             },
             text = {
                 OutlinedTextField(
@@ -254,10 +269,11 @@ fun LibraryScreen(
                     onValueChange = { newPlaylistName = it },
                     label = { Text("Playlist name") },
                     singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = ElectricPurple,
-                        cursorColor = ElectricPurple,
-                        focusedLabelColor = ElectricPurple
+                        focusedBorderColor = MuzicRed,
+                        cursorColor = MuzicRed,
+                        focusedLabelColor = MuzicRed
                     )
                 )
             },
@@ -271,17 +287,14 @@ fun LibraryScreen(
                         }
                     }
                 ) {
-                    Text("Create", color = ElectricPurple)
+                    Text("Create", color = MuzicRed, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(
-                    onClick = { showCreatePlaylistDialog = false }
-                ) {
+                TextButton(onClick = { showCreatePlaylistDialog = false }) {
                     Text("Cancel", color = TextSecondary)
                 }
-            },
-            containerColor = DarkSurface
+            }
         )
     }
 }

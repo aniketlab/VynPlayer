@@ -2,43 +2,63 @@ package com.muzic.player.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Primary Palette
-val DeepIndigo = Color(0xFF1A237E)
-val DeepIndigoLight = Color(0xFF283593)
-val DeepIndigoDark = Color(0xFF0D1442)
+// ─── Primary Brand Colors ───
+val MuzicRed = Color(0xFFFC3C44)           // Apple Music inspired red accent
+val MuzicRedDark = Color(0xFFD42F36)
+val MuzicPink = Color(0xFFFF2D55)          // Vibrant pink for highlights
+val MuzicGradientStart = Color(0xFFFA233B)
+val MuzicGradientEnd = Color(0xFFFC3C44)
 
-// Accent Palette
-val ElectricPurple = Color(0xFF7C4DFF)
-val ElectricPurpleLight = Color(0xFFB388FF)
-val ElectricPurpleDark = Color(0xFF651FFF)
+// ─── Backgrounds ───
+val DarkBg = Color(0xFF000000)             // Pure black for AMOLED
+val DarkSurface = Color(0xFF1C1C1E)        // iOS-style dark surface
+val DarkSurfaceElevated = Color(0xFF2C2C2E) // Elevated cards
+val DarkSurfaceSecondary = Color(0xFF3A3A3C) // Secondary surfaces
+val DarkSurfaceTertiary = Color(0xFF48484A)  // Tertiary
+val CardBackground = Color(0xFF1C1C1E)
+val CardBackgroundHover = Color(0xFF2C2C2E)
 
-// Background / Surface
-val DarkCharcoal = Color(0xFF121212)
-val DarkSurface = Color(0xFF1E1E1E)
-val DarkSurfaceVariant = Color(0xFF2C2C2C)
-val DarkSurfaceElevated = Color(0xFF383838)
+// ─── Text Colors ───
+val TextPrimary = Color(0xFFFFFFFF)        // Pure white text
+val TextSecondary = Color(0xFF8E8E93)      // iOS secondary gray
+val TextTertiary = Color(0xFF636366)       // Muted text
+val TextOnAccent = Color(0xFFFFFFFF)
 
-// Text
-val SoftWhite = Color(0xFFE0E0E0)
-val TextSecondary = Color(0xFFB0B0B0)
-val TextTertiary = Color(0xFF757575)
+// ─── Accent & Functional ───
+val AccentBlue = Color(0xFF0A84FF)         // iOS blue
+val AccentGreen = Color(0xFF30D158)        // Success green
+val AccentOrange = Color(0xFFFF9F0A)       // Warning orange
+val AccentPurple = Color(0xFFBF5AF2)       // Purple accent
+val FavoriteRed = Color(0xFFFC3C44)
 
-// Status
-val SuccessGreen = Color(0xFF00E676)
-val ErrorRed = Color(0xFFFF5252)
-val WarningOrange = Color(0xFFFFAB40)
+// ─── Dividers & Separators ───
+val DividerColor = Color(0xFF38383A)
+val SeparatorColor = Color(0xFF545458).copy(alpha = 0.6f)
 
-// Now Playing Gradient
-val NowPlayingGradientStart = Color(0xFF1A237E)
-val NowPlayingGradientMid = Color(0xFF311B92)
-val NowPlayingGradientEnd = Color(0xFF121212)
+// ─── Glassmorphism ───
+val GlassWhite = Color(0xFFFFFFFF).copy(alpha = 0.08f)
+val GlassBorder = Color(0xFFFFFFFF).copy(alpha = 0.12f)
+val GlassOverlay = Color(0xFF000000).copy(alpha = 0.4f)
 
-// Mini Player
-val MiniPlayerBackground = Color(0xFF1E1E2E)
+// ─── Now Playing ───
+val NowPlayingBg = Color(0xFF000000)
+val NowPlayingOverlay = Color(0xFF1C1C1E).copy(alpha = 0.85f)
 
-// Seekbar
-val SeekbarActive = ElectricPurple
-val SeekbarInactive = Color(0xFF424242)
+// ─── Mini Player ───
+val MiniPlayerBg = Color(0xFF1C1C1E)
+val MiniPlayerBorder = Color(0xFF38383A)
 
-// Divider
-val DividerColor = Color(0xFF2C2C2C)
+// ─── Tab Bar ───
+val TabActive = Color(0xFFFC3C44)
+val TabInactive = Color(0xFF8E8E93)
+
+// ─── Backward Compatibility Aliases ───
+val SoftWhite = TextPrimary
+val ElectricPurple = MuzicRed
+val ElectricPurpleLight = MuzicPink
+val DeepIndigo = Color(0xFF1C1C1E)
+val DeepIndigoLight = DarkSurfaceElevated
+val DarkCharcoal = DarkBg
+val DarkSurfaceVariant = DarkSurfaceElevated
+val WarningOrange = AccentOrange
+val ErrorRed = MuzicRed

@@ -12,8 +12,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.muzic.player.data.model.Album
 import com.muzic.player.ui.theme.*
@@ -26,51 +28,52 @@ fun AlbumCard(
 ) {
     Column(
         modifier = modifier
-            .width(160.dp)
+            .padding(6.dp)
             .clickable(onClick = onClick)
-            .padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Album Art
+        // Album art
         Box(
             modifier = Modifier
-                .size(144.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(DarkSurfaceVariant),
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(14.dp))
+                .background(DarkSurface),
             contentAlignment = Alignment.Center
         ) {
             AsyncImage(
                 model = album.albumArtUri,
-                contentDescription = "Album art for ${album.name}",
+                contentDescription = album.name,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-            Icon(
-                imageVector = Icons.Rounded.Album,
-                contentDescription = null,
-                tint = TextTertiary,
-                modifier = Modifier.size(48.dp)
-            )
+            if (album.albumArtUri == null) {
+                Icon(
+                    imageVector = Icons.Rounded.Album,
+                    contentDescription = null,
+                    tint = TextTertiary,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
             text = album.name,
-            style = MaterialTheme.typography.titleSmall,
-            color = SoftWhite,
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextPrimary,
+            fontWeight = FontWeight.Medium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.fillMaxWidth()
+            fontSize = 13.sp
         )
-
         Text(
-            text = "${album.artist} • ${album.songCount} songs",
+            text = album.artist,
             style = MaterialTheme.typography.bodySmall,
             color = TextSecondary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.fillMaxWidth()
+            fontSize = 11.sp
         )
     }
 }

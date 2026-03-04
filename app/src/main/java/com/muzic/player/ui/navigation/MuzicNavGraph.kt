@@ -48,7 +48,7 @@ fun MuzicNavGraph(
     ) {
         composable(Screen.Splash.route) {
             SplashScreen(
-                onSplashComplete = {
+                onNavigateToLibrary = {
                     navController.navigate(Screen.Library.route) {
                         popUpTo(Screen.Splash.route) { inclusive = true }
                     }

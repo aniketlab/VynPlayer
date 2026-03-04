@@ -11,8 +11,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.muzic.player.data.model.Artist
 import com.muzic.player.ui.theme.*
 
@@ -26,7 +28,7 @@ fun ArtistCard(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Avatar
@@ -34,31 +36,35 @@ fun ArtistCard(
             modifier = Modifier
                 .size(48.dp)
                 .clip(CircleShape)
-                .background(DeepIndigoLight),
+                .background(DarkSurfaceElevated),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Rounded.Person,
-                contentDescription = null,
-                tint = ElectricPurpleLight,
-                modifier = Modifier.size(28.dp)
+            Text(
+                text = artist.name.take(1).uppercase(),
+                style = MaterialTheme.typography.titleMedium,
+                color = MuzicRed,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp
             )
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(14.dp))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = artist.name,
                 style = MaterialTheme.typography.bodyLarge,
-                color = SoftWhite,
+                color = TextPrimary,
+                fontWeight = FontWeight.Medium,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                fontSize = 15.sp
             )
             Text(
-                text = "${artist.songCount} songs • ${artist.albumCount} albums",
+                text = "${artist.songCount} songs",
                 style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary
+                color = TextSecondary,
+                fontSize = 12.sp
             )
         }
     }

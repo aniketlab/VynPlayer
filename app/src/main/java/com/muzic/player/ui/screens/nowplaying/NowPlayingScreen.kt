@@ -3,6 +3,7 @@ package com.muzic.player.ui.screens.nowplaying
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -15,7 +16,6 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,16 +40,24 @@ fun NowPlayingScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        NowPlayingGradientStart,
-                        NowPlayingGradientMid,
-                        NowPlayingGradientEnd
+            .background(DarkBg)
+    ) {
+        // Subtle gradient overlay
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            MuzicRed.copy(alpha = 0.06f),
+                            DarkBg,
+                            DarkBg,
+                            DarkSurface.copy(alpha = 0.5f)
+                        )
                     )
                 )
-            )
-    ) {
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -70,111 +78,117 @@ fun NowPlayingScreen(
                     Icon(
                         imageVector = Icons.Rounded.KeyboardArrowDown,
                         contentDescription = "Back",
-                        tint = SoftWhite,
+                        tint = TextPrimary,
                         modifier = Modifier.size(32.dp)
                     )
                 }
 
-                Text(
-                    text = "NOW PLAYING",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = TextSecondary,
-                    letterSpacing = 3.sp
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "PLAYING FROM",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextTertiary,
+                        letterSpacing = 2.sp,
+                        fontSize = 10.sp
+                    )
+                    Text(
+                        text = song?.album ?: "Unknown Album",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = TextSecondary,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
 
                 IconButton(onClick = { /* Queue */ }) {
                     Icon(
-                        imageVector = Icons.Rounded.QueueMusic,
-                        contentDescription = "Queue",
-                        tint = SoftWhite
+                        imageVector = Icons.Rounded.MoreVert,
+                        contentDescription = "More",
+                        tint = TextPrimary
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Album Art
+            // Album Art - Large & Premium
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = 8.dp)
                     .shadow(
-                        elevation = 24.dp,
-                        shape = RoundedCornerShape(24.dp),
-                        ambientColor = ElectricPurple.copy(alpha = 0.3f),
-                        spotColor = ElectricPurple.copy(alpha = 0.3f)
+                        elevation = 32.dp,
+                        shape = RoundedCornerShape(20.dp),
+                        ambientColor = MuzicRed.copy(alpha = 0.2f),
+                        spotColor = MuzicRed.copy(alpha = 0.15f)
                     )
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(DarkSurfaceVariant),
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(DarkSurface),
                 contentAlignment = Alignment.Center
             ) {
                 if (song != null) {
                     AsyncImage(
                         model = song.albumArtUri,
-                        contentDescription = "Album art for ${song.title}",
+                        contentDescription = "Album art",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )
                 }
-                // Fallback icon
-                Icon(
-                    imageVector = Icons.Rounded.MusicNote,
-                    contentDescription = null,
-                    tint = TextTertiary.copy(alpha = 0.5f),
-                    modifier = Modifier.size(96.dp)
-                )
+
+                if (song?.albumArtUri == null) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Rounded.MusicNote,
+                            contentDescription = null,
+                            tint = TextTertiary,
+                            modifier = Modifier.size(80.dp)
+                        )
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
-            // Song Info with Favorite
+            // Song Info Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = song?.title ?: "No song playing",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = SoftWhite,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = TextPrimary,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        fontSize = 22.sp
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = song?.artist ?: "",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = ElectricPurpleLight,
+                        color = MuzicRed,
+                        fontWeight = FontWeight.Medium,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        fontSize = 16.sp
                     )
-                    if (song?.album?.isNotBlank() == true) {
-                        Text(
-                            text = song.album,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
                 }
 
                 IconButton(onClick = { viewModel.toggleFavorite() }) {
                     Icon(
                         imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                        contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
-                        tint = if (isFavorite) ElectricPurple else TextTertiary,
-                        modifier = Modifier.size(28.dp)
+                        contentDescription = null,
+                        tint = if (isFavorite) MuzicRed else TextTertiary,
+                        modifier = Modifier.size(26.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             // Seek Bar
             MuzicSeekBar(
@@ -183,7 +197,7 @@ fun NowPlayingScreen(
                 onSeek = { viewModel.seekTo(it) }
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Playback Controls
             PlaybackControls(
@@ -197,36 +211,26 @@ fun NowPlayingScreen(
                 onShuffleClick = { viewModel.toggleShuffle() }
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.weight(1f))
 
-            // Bottom extra controls (optional)
+            // Bottom utility row
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                IconButton(onClick = { /* Share */ }) {
-                    Icon(
-                        imageVector = Icons.Rounded.Share,
-                        contentDescription = "Share",
-                        tint = TextTertiary,
-                        modifier = Modifier.size(20.dp)
-                    )
+                IconButton(onClick = { }) {
+                    Icon(Icons.Rounded.Share, "Share", tint = TextTertiary, modifier = Modifier.size(22.dp))
                 }
-                IconButton(onClick = { /* Equalizer */ }) {
-                    Icon(
-                        imageVector = Icons.Rounded.Equalizer,
-                        contentDescription = "Equalizer",
-                        tint = TextTertiary,
-                        modifier = Modifier.size(20.dp)
-                    )
+                IconButton(onClick = { }) {
+                    Icon(Icons.Rounded.Equalizer, "EQ", tint = TextTertiary, modifier = Modifier.size(22.dp))
                 }
-                IconButton(onClick = { /* Timer */ }) {
-                    Icon(
-                        imageVector = Icons.Rounded.Timer,
-                        contentDescription = "Sleep timer",
-                        tint = TextTertiary,
-                        modifier = Modifier.size(20.dp)
-                    )
+                IconButton(onClick = { }) {
+                    Icon(Icons.Rounded.Timer, "Timer", tint = TextTertiary, modifier = Modifier.size(22.dp))
+                }
+                IconButton(onClick = { }) {
+                    Icon(Icons.Rounded.QueueMusic, "Queue", tint = TextTertiary, modifier = Modifier.size(22.dp))
                 }
             }
         }

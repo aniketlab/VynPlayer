@@ -1,12 +1,15 @@
 package com.muzic.player.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.muzic.player.player.RepeatMode
 import com.muzic.player.ui.theme.*
@@ -24,45 +27,50 @@ fun PlaybackControls(
     modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Shuffle
-        IconButton(onClick = onShuffleClick) {
+        IconButton(
+            onClick = onShuffleClick,
+            modifier = Modifier.size(44.dp)
+        ) {
             Icon(
                 imageVector = Icons.Rounded.Shuffle,
                 contentDescription = "Shuffle",
-                tint = if (isShuffleEnabled) ElectricPurple else TextTertiary,
-                modifier = Modifier.size(24.dp)
+                tint = if (isShuffleEnabled) MuzicRed else TextTertiary,
+                modifier = Modifier.size(22.dp)
             )
         }
 
         // Previous
         IconButton(
             onClick = onPreviousClick,
-            modifier = Modifier.size(48.dp)
+            modifier = Modifier.size(52.dp)
         ) {
             Icon(
                 imageVector = Icons.Rounded.SkipPrevious,
                 contentDescription = "Previous",
-                tint = SoftWhite,
-                modifier = Modifier.size(36.dp)
+                tint = TextPrimary,
+                modifier = Modifier.size(34.dp)
             )
         }
 
-        // Play/Pause (larger)
-        FilledIconButton(
+        // Play/Pause - Big circular button
+        IconButton(
             onClick = onPlayPauseClick,
-            modifier = Modifier.size(64.dp),
-            colors = IconButtonDefaults.filledIconButtonColors(
-                containerColor = ElectricPurple,
-                contentColor = SoftWhite
-            )
+            modifier = Modifier
+                .size(68.dp)
+                .clip(CircleShape)
+                .background(MuzicRed)
         ) {
             Icon(
                 imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                 contentDescription = if (isPlaying) "Pause" else "Play",
+                tint = TextPrimary,
                 modifier = Modifier.size(36.dp)
             )
         }
@@ -70,29 +78,30 @@ fun PlaybackControls(
         // Next
         IconButton(
             onClick = onNextClick,
-            modifier = Modifier.size(48.dp)
+            modifier = Modifier.size(52.dp)
         ) {
             Icon(
                 imageVector = Icons.Rounded.SkipNext,
                 contentDescription = "Next",
-                tint = SoftWhite,
-                modifier = Modifier.size(36.dp)
+                tint = TextPrimary,
+                modifier = Modifier.size(34.dp)
             )
         }
 
         // Repeat
-        IconButton(onClick = onRepeatClick) {
+        IconButton(
+            onClick = onRepeatClick,
+            modifier = Modifier.size(44.dp)
+        ) {
             Icon(
                 imageVector = when (repeatMode) {
                     RepeatMode.ONE -> Icons.Rounded.RepeatOne
-                    else -> Icons.Rounded.Repeat
+                    RepeatMode.ALL -> Icons.Rounded.Repeat
+                    RepeatMode.OFF -> Icons.Rounded.Repeat
                 },
-                contentDescription = "Repeat: ${repeatMode.name}",
-                tint = when (repeatMode) {
-                    RepeatMode.OFF -> TextTertiary
-                    RepeatMode.ONE, RepeatMode.ALL -> ElectricPurple
-                },
-                modifier = Modifier.size(24.dp)
+                contentDescription = "Repeat",
+                tint = if (repeatMode != RepeatMode.OFF) MuzicRed else TextTertiary,
+                modifier = Modifier.size(22.dp)
             )
         }
     }

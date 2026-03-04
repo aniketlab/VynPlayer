@@ -3,13 +3,16 @@ package com.muzic.player.ui.screens.splash
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material3.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
@@ -19,96 +22,88 @@ import com.muzic.player.ui.theme.*
 import kotlinx.coroutines.delay
 
 @Composable
-fun SplashScreen(
-    onSplashComplete: () -> Unit
-) {
-    val infiniteTransition = rememberInfiniteTransition(label = "splash")
+fun SplashScreen(onNavigateToLibrary: () -> Unit) {
+    var startAnimation by remember { mutableStateOf(false) }
 
-    // Pulse animation for icon
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 0.8f,
-        targetValue = 1.1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = EaseInOutCubic),
-            repeatMode = RepeatMode.Reverse
+    val iconScale by animateFloatAsState(
+        targetValue = if (startAnimation) 1f else 0.3f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
         ),
-        label = "scale"
+        label = "iconScale"
     )
 
-    // Fade in
-    var alpha by remember { mutableFloatStateOf(0f) }
-    val animatedAlpha by animateFloatAsState(
-        targetValue = alpha,
-        animationSpec = tween(800),
-        label = "alpha"
+    val textAlpha by animateFloatAsState(
+        targetValue = if (startAnimation) 1f else 0f,
+        animationSpec = tween(800, delayMillis = 400),
+        label = "textAlpha"
+    )
+
+    val taglineAlpha by animateFloatAsState(
+        targetValue = if (startAnimation) 1f else 0f,
+        animationSpec = tween(600, delayMillis = 800),
+        label = "taglineAlpha"
     )
 
     LaunchedEffect(Unit) {
-        alpha = 1f
-        delay(2000)
-        onSplashComplete()
+        startAnimation = true
+        delay(2200)
+        onNavigateToLibrary()
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        DeepIndigo,
-                        NowPlayingGradientMid,
-                        DarkCharcoal
-                    )
-                )
-            ),
+            .background(DarkBg),
         contentAlignment = Alignment.Center
     ) {
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.alpha(animatedAlpha)
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // App Icon
             Box(
                 modifier = Modifier
                     .size(100.dp)
-                    .scale(scale),
+                    .scale(iconScale)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(MuzicGradientStart, MuzicGradientEnd)
+                        )
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Rounded.MusicNote,
-                    contentDescription = "Muzic",
-                    tint = ElectricPurple,
-                    modifier = Modifier.size(72.dp)
+                    contentDescription = null,
+                    tint = TextPrimary,
+                    modifier = Modifier.size(50.dp)
                 )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // App Name
+            // App name
             Text(
                 text = "Muzic",
-                fontSize = 42.sp,
+                fontSize = 36.sp,
                 fontWeight = FontWeight.Bold,
-                color = SoftWhite,
-                letterSpacing = 4.sp
+                color = TextPrimary,
+                letterSpacing = 3.sp,
+                modifier = Modifier.alpha(textAlpha)
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Tagline
             Text(
                 text = "Pure Sound. No Noise.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = ElectricPurpleLight,
-                letterSpacing = 2.sp
-            )
-
-            Spacer(modifier = Modifier.height(48.dp))
-
-            // Loading indicator
-            CircularProgressIndicator(
-                modifier = Modifier.size(24.dp),
-                color = ElectricPurple,
-                strokeWidth = 2.dp
+                fontSize = 14.sp,
+                color = TextSecondary,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 2.sp,
+                modifier = Modifier.alpha(taglineAlpha)
             )
         }
     }
