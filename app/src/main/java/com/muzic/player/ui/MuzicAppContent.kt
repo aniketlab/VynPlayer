@@ -1,6 +1,7 @@
 package com.muzic.player.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -11,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -61,13 +63,14 @@ fun MuzicAppContent(
                     ) {
                         BottomNavScreens.forEach { screen ->
                             val selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true
+                            val scale by animateFloatAsState(targetValue = if (selected) 1.2f else 1.0f, label = "scaleAnim")
                             
                             NavigationBarItem(
                                 icon = {
                                     Icon(
                                         imageVector = screen.icon!!,
                                         contentDescription = screen.title,
-                                        modifier = Modifier.size(26.dp)
+                                        modifier = Modifier.size(26.dp).scale(scale)
                                     )
                                 },
                                 label = {
@@ -126,7 +129,8 @@ fun MuzicAppContent(
                     else 0f,
                     onPlayerClick = { navController.navigate(Screen.NowPlaying.route) },
                     onPlayPauseClick = { viewModel.togglePlayPause() },
-                    onNextClick = { viewModel.skipToNext() }
+                    onNextClick = { viewModel.skipToNext() },
+                    onDismiss = { viewModel.stopPlayback() }
                 )
             }
         }

@@ -151,7 +151,7 @@ fun SettingsScreen(
                         icon = Icons.Rounded.Info,
                         iconTint = MuzicRed,
                         title = "About Muzic",
-                        subtitle = "Version 1.0.0 • No Ads • Pure Music",
+                        subtitle = "Version 2.1.0 • No Ads • Pure Music",
                         onClick = { showAboutDialog = true }
                     )
                     SettingsDivider()
@@ -176,17 +176,6 @@ fun SettingsScreen(
             }
 
             Spacer(modifier = Modifier.height(40.dp))
-
-            // Footer
-            Text(
-                text = "Muzic v1.0.0\nPure Sound. No Noise.",
-                style = MaterialTheme.typography.bodySmall,
-                color = TextTertiary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 32.dp)
-            )
         }
     }
 
@@ -232,7 +221,7 @@ fun SettingsScreen(
                     )
 
                     Text(
-                        text = "Version 1.0.0",
+                        text = "Version 2.1.0",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondary
                     )

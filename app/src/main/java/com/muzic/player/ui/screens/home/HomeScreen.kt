@@ -33,8 +33,10 @@ import com.muzic.player.util.PermissionHelper
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
+    onNavigateToSearch: () -> Unit,
     viewModel: LibraryViewModel = hiltViewModel()
 ) {
+    var showMenu by remember { mutableStateOf(false) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
     val context = LocalContext.current
@@ -71,19 +73,34 @@ fun HomeScreen(
                     )
                 },
                 actions = {
-                    IconButton(onClick = { /* Navigate to Search */ }) {
+                    IconButton(onClick = onNavigateToSearch) {
                         Icon(
                             imageVector = Icons.Rounded.Search,
                             contentDescription = "Search",
                             tint = TextPrimary
                         )
                     }
-                    IconButton(onClick = { /* Menu */ }) {
-                        Icon(
-                            imageVector = Icons.Rounded.MoreVert,
-                            contentDescription = "Menu",
-                            tint = TextPrimary
-                        )
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Rounded.MoreVert,
+                                contentDescription = "Menu",
+                                tint = TextPrimary
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false },
+                            modifier = Modifier.background(DarkSurfaceElevated)
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Rescan Library", color = TextPrimary) },
+                                onClick = {
+                                    showMenu = false
+                                    viewModel.refreshLibrary()
+                                }
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

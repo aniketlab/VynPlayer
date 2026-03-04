@@ -116,6 +116,11 @@ class PlaybackManager @Inject constructor(
         updateState { it.copy(isPlaying = false) }
     }
 
+    fun stop() {
+        exoPlayer?.stop()
+        updateState { PlaybackState() }
+    }
+
     fun togglePlayPause() {
         if (_playbackState.value.isPlaying) pause() else play()
     }

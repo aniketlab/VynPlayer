@@ -41,7 +41,9 @@ fun MuzicNavGraph(
         }
 
         composable(Screen.Home.route) {
-            HomeScreen()
+            HomeScreen(
+                onNavigateToSearch = { navController.navigate(Screen.Search.route) }
+            )
         }
 
         composable(Screen.Search.route) {
@@ -49,9 +51,7 @@ fun MuzicNavGraph(
         }
 
         composable(Screen.Library.route) {
-            LibraryScreen(
-                onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
-            )
+            LibraryScreen()
         }
 
         composable(Screen.Settings.route) {

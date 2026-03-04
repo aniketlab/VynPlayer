@@ -194,6 +194,7 @@ fun NowPlayingScreen(
             MuzicSeekBar(
                 currentPosition = currentPosition,
                 duration = playbackState.duration,
+                isPlaying = playbackState.isPlaying,
                 onSeek = { viewModel.seekTo(it) }
             )
 

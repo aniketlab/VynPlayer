@@ -21,4 +21,5 @@ class MainViewModel @Inject constructor(
 
     fun togglePlayPause() = playbackManager.togglePlayPause()
     fun skipToNext() = playbackManager.skipToNext()
+    fun stopPlayback() = playbackManager.stop()
 }
