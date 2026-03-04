@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.muzic.player.ui.components.MiniPlayer
 import com.muzic.player.ui.screens.library.tabs.*
 import com.muzic.player.ui.theme.*
 import com.muzic.player.util.PermissionHelper
@@ -34,7 +33,6 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun LibraryScreen(
-    onNavigateToNowPlaying: () -> Unit,
     onNavigateToSettings: () -> Unit,
     viewModel: LibraryViewModel = hiltViewModel()
 ) {
@@ -239,18 +237,6 @@ fun LibraryScreen(
                     }
                 }
             }
-
-            // Mini Player
-            MiniPlayer(
-                currentSong = playbackState.currentSong,
-                isPlaying = playbackState.isPlaying,
-                progress = if (playbackState.duration > 0)
-                    playbackState.currentPosition.toFloat() / playbackState.duration.toFloat()
-                else 0f,
-                onPlayerClick = onNavigateToNowPlaying,
-                onPlayPauseClick = { viewModel.togglePlayPause() },
-                onNextClick = { viewModel.skipToNext() }
-            )
         }
     }
 

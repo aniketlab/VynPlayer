@@ -227,7 +227,7 @@ fun NowPlayingScreen(
                     Icon(Icons.Rounded.Equalizer, "EQ", tint = TextTertiary, modifier = Modifier.size(22.dp))
                 }
                 IconButton(onClick = { }) {
-                    Icon(Icons.Rounded.Timer, "Timer", tint = TextTertiary, modifier = Modifier.size(22.dp))
+                    Icon(Icons.Rounded.Lyrics, "Lyrics", tint = TextTertiary, modifier = Modifier.size(22.dp))
                 }
                 IconButton(onClick = { }) {
                     Icon(Icons.Rounded.QueueMusic, "Queue", tint = TextTertiary, modifier = Modifier.size(22.dp))

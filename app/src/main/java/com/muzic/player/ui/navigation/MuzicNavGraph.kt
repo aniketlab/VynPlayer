@@ -2,14 +2,17 @@ package com.muzic.player.ui.navigation
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.navArgument
+import com.muzic.player.ui.screens.home.HomeScreen
 import com.muzic.player.ui.screens.library.LibraryScreen
 import com.muzic.player.ui.screens.nowplaying.NowPlayingScreen
+import com.muzic.player.ui.screens.search.SearchScreen
 import com.muzic.player.ui.screens.settings.SettingsScreen
 import com.muzic.player.ui.screens.splash.SplashScreen
 
@@ -21,49 +24,39 @@ fun MuzicNavGraph(
     NavHost(
         navController = navController,
         startDestination = startDestination,
-        enterTransition = {
-            fadeIn(animationSpec = tween(300)) + slideInHorizontally(
-                initialOffsetX = { it / 4 },
-                animationSpec = tween(300)
-            )
-        },
-        exitTransition = {
-            fadeOut(animationSpec = tween(300)) + slideOutHorizontally(
-                targetOffsetX = { -it / 4 },
-                animationSpec = tween(300)
-            )
-        },
-        popEnterTransition = {
-            fadeIn(animationSpec = tween(300)) + slideInHorizontally(
-                initialOffsetX = { -it / 4 },
-                animationSpec = tween(300)
-            )
-        },
-        popExitTransition = {
-            fadeOut(animationSpec = tween(300)) + slideOutHorizontally(
-                targetOffsetX = { it / 4 },
-                animationSpec = tween(300)
-            )
-        }
+        enterTransition = { fadeIn(animationSpec = tween(300)) },
+        exitTransition = { fadeOut(animationSpec = tween(300)) },
+        popEnterTransition = { fadeIn(animationSpec = tween(300)) },
+        popExitTransition = { fadeOut(animationSpec = tween(300)) },
+        modifier = Modifier.fillMaxSize()
     ) {
         composable(Screen.Splash.route) {
             SplashScreen(
                 onNavigateToLibrary = {
-                    navController.navigate(Screen.Library.route) {
+                    navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Splash.route) { inclusive = true }
                     }
                 }
             )
         }
 
+        composable(Screen.Home.route) {
+            HomeScreen()
+        }
+
+        composable(Screen.Search.route) {
+            SearchScreen()
+        }
+
         composable(Screen.Library.route) {
             LibraryScreen(
-                onNavigateToNowPlaying = {
-                    navController.navigate(Screen.NowPlaying.route)
-                },
-                onNavigateToSettings = {
-                    navController.navigate(Screen.Settings.route)
-                }
+                onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
+            )
+        }
+
+        composable(Screen.Settings.route) {
+            SettingsScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
@@ -83,12 +76,6 @@ fun MuzicNavGraph(
             }
         ) {
             NowPlayingScreen(
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-
-        composable(Screen.Settings.route) {
-            SettingsScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
