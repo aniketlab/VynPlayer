@@ -1,83 +1,73 @@
-# 🎵 Muzic — Android Offline Music Player
+# Muzic - Android Offline Audio Architecture
 
-A lightweight, ad-free offline music player focused on high-quality audio playback with a clean Material Design 3 UI.
+Muzic is a lightweight, ad-free offline audio player for Android, engineered for high-fidelity playback with a responsive, modern application architecture.
 
-## ✨ Features
+## Overview
 
-- 🎶 **Offline Playback** — No internet required, ever
-- 🔊 **High Quality Audio** — FLAC, WAV, ALAC, OPUS, OGG, AAC, MP3 support
-- 🎨 **Material Design 3** — Beautiful dark theme with smooth animations
-- 📂 **Multiple Views** — Songs, Albums, Artists, Playlists, Folders
-- ❤️ **Favorites** — Quick access to your loved tracks
-- 📝 **Playlists** — Create and manage custom playlists
-- 🔀 **Shuffle & Repeat** — All playback modes supported
-- 🔔 **Notification Controls** — Play/pause from notification & lock screen
-- 🎧 **Bluetooth Support** — Full media session integration
-- 🚫 **No Ads, No Tracking** — Pure music experience
+Designed with Android's Jetpack Compose and Media3, Muzic offers a robust audio playback experience. Features include complete offline capabilities, support for lossless audio formats, and standard media session integration for system-wide controls.
 
-## 📱 Screenshots
+## Key Features
 
-*Coming soon*
+- **Offline Playback:** Operates entirely without network requirements.
+- **High-Fidelity Audio Support:** Compatible with FLAC, WAV, ALAC, OPUS, OGG, AAC, and MP3.
+- **Modern User Interface:** Built using Jetpack Compose with a persistent bottom navigation paradigm, a global mini-player, and a dark-themed aesthetic.
+- **Media Library Management:** Direct fetching and categorization of local device media into Songs, Albums, Artists, Playlists, and Folders.
+- **System Integrations:** Full support for Android MediaSession, allowing playback control via the notification drawer, lock screen, and Bluetooth peripherals.
+- **Privacy-Centric:** No internet permissions requested, zero telemetry, and zero advertisements.
 
-## 🛠️ Tech Stack
+## Technology Stack
 
-| Technology | Usage |
-|------------|-------|
-| Kotlin | 100% |
-| Jetpack Compose | UI Framework |
-| Media3 / ExoPlayer | Audio Engine |
-| Room | Local Database |
-| Hilt | Dependency Injection |
-| Coil | Image Loading |
-| Coroutines + Flow | Async Operations |
+- **Language:** Kotlin
+- **UI Framework:** Jetpack Compose
+- **Audio Engine:** AndroidX Media3 / ExoPlayer
+- **Local Persistence:** Room Database
+- **Dependency Injection:** Hilt
+- **Image Loading:** Coil
+- **Asynchrony:** Kotlin Coroutines & Flow
 
-## 🏗️ Architecture
+## Architecture
 
-MVVM + Repository Pattern
+The project strictly follows the MVVM (Model-View-ViewModel) architectural pattern combined with a local Repository data layer.
 
-```
+```text
 com.muzic.player/
-├── data/          # Models, Room DB, Repositories, MediaStore Scanner
-├── di/            # Hilt Modules
-├── player/        # ExoPlayer, MediaSession Service, Queue Manager
-├── ui/            # Compose Screens, Components, Theme, Navigation
-└── util/          # Constants, Helpers
+├── data/          # Entity models, Room DAOs, Repositories, MediaStore logic
+├── di/            # Hilt module bindings
+├── player/        # Media3 ExoPlayer instance, MediaSession service
+├── ui/            # Compose screens, components, theme tokens, navigation graph
+└── util/          # Extension functions, permission helpers, constants
 ```
 
-## 📦 Build
+## Build Instructions
 
-1. Clone the repository
-2. Open in Android Studio (Panda 2 or later)
-3. Sync Gradle
-4. Run on device/emulator (API 29+)
+1. Clone the repository.
+2. Open the project in Android Studio (Iguana 2023.2.1 or newer recommended).
+3. Synchronize Gradle files.
+4. Execute via standard procedures or build directly via the Gradle Wrapper:
 
 ```bash
 ./gradlew assembleDebug
 ```
 
-APK will be at: `app/build/outputs/apk/debug/app-debug.apk`
+The resulting debug APK will be generated at: `app/build/outputs/apk/debug/app-debug.apk`
 
-## 📋 Requirements
+## Requirements
 
-- Android 10 (API 29) or later
-- Storage permission for music access
+- Minimum OS: Android 10 (API Level 29)
+- Target SDK: API 36
+- Storage Permissions for local media access
 
-## 🗺️ Roadmap
+## Roadmap
 
-- [x] Audio engine + playback service
-- [x] Music library scanning
-- [x] Material Design 3 UI
-- [x] Playlists & Favorites
-- [ ] 10-band Equalizer
-- [ ] Bass Boost & Virtualizer
-- [ ] Smart Playlists
-- [ ] Sleep Timer
-- [ ] Gesture Navigation
+- [x] Integrate Media3 audio engine and playback service
+- [x] Implement MediaStore library scanning
+- [x] Construct Jetpack Compose UI with persistent navigation
+- [x] Global playback state handling (MiniPlayer)
+- [x] Implement Playlists and Favorites
+- [ ] Implement System Audio Effects (Equalizer, Bass Boost, Virtualizer interfaces)
+- [ ] Smart Playlists functionality
+- [ ] Sleep Timer implementation
 
-## 📄 License
+## License
 
-This project is for personal use. All rights reserved.
-
----
-
-**Muzic** — *Pure Sound. No Noise.* 🎵
+All rights reserved. Muzic is currently maintained for personal internal use.
