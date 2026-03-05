@@ -28,7 +28,7 @@ fun SongsTab(
             isLoading -> {
                 CircularProgressIndicator(
                     modifier = Modifier.align(Alignment.Center),
-                    color = ElectricPurple
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
             songs.isEmpty() -> {
@@ -39,23 +39,24 @@ fun SongsTab(
                     Icon(
                         imageVector = Icons.Rounded.MusicNote,
                         contentDescription = null,
-                        tint = TextTertiary,
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
                         modifier = Modifier.size(64.dp)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = "No songs found",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
                     Text(
                         text = "Add music to your device to get started",
                         style = MaterialTheme.typography.bodySmall,
-                        color = TextTertiary
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                     )
                 }
             }
             else -> {
+                val adaptivePadding = getAdaptivePadding()
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(vertical = 8.dp)
@@ -65,8 +66,8 @@ fun SongsTab(
                         Text(
                             text = "${songs.size} songs",
                             style = MaterialTheme.typography.labelMedium,
-                            color = TextTertiary,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            modifier = Modifier.padding(horizontal = adaptivePadding, vertical = 8.dp)
                         )
                     }
 
@@ -78,13 +79,14 @@ fun SongsTab(
                             song = song,
                             isPlaying = song.id == currentSongId,
                             onSongClick = { onSongClick(song) },
-                            onFavoriteClick = { onFavoriteClick(song.id) }
+                            onFavoriteClick = { onFavoriteClick(song.id) },
+                            modifier = Modifier.padding(horizontal = adaptivePadding)
                         )
                     }
 
                     // Bottom spacer for mini player
                     item {
-                        Spacer(modifier = Modifier.height(80.dp))
+                        Spacer(modifier = Modifier.height(144.dp))
                     }
                 }
             }

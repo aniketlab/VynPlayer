@@ -24,7 +24,7 @@ object DatabaseModule {
             context,
             MuzicDatabase::class.java,
             Constants.DATABASE_NAME
-        ).build()
+        ).fallbackToDestructiveMigration().build()
     }
 
     @Provides
@@ -35,5 +35,15 @@ object DatabaseModule {
     @Provides
     fun provideFavoriteDao(database: MuzicDatabase): FavoriteDao {
         return database.favoriteDao()
+    }
+
+    @Provides
+    fun providePlaybackHistoryDao(database: MuzicDatabase): com.muzic.player.data.local.dao.PlaybackHistoryDao {
+        return database.playbackHistoryDao()
+    }
+
+    @Provides
+    fun provideSongDao(database: MuzicDatabase): com.muzic.player.data.local.dao.SongDao {
+        return database.songDao()
     }
 }

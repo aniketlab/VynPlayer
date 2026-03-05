@@ -20,8 +20,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -34,6 +36,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun LibraryScreen(
+    onNavigateToArtist: (String) -> Unit = {},
     viewModel: LibraryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -66,6 +69,8 @@ fun LibraryScreen(
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     var newPlaylistName by remember { mutableStateOf("") }
 
+    val adaptivePadding = getAdaptivePadding()
+    
     Scaffold(
         topBar = {
             TopAppBar(
@@ -74,7 +79,7 @@ fun LibraryScreen(
                         text = "Muzic",
                         fontWeight = FontWeight.Bold,
                         fontSize = 28.sp,
-                        color = TextPrimary,
+                        color = MaterialTheme.colorScheme.onBackground,
                         letterSpacing = 1.sp
                     )
                 },
@@ -83,16 +88,16 @@ fun LibraryScreen(
                         Icon(
                             imageVector = Icons.Rounded.Refresh,
                             contentDescription = "Refresh",
-                            tint = TextSecondary
+                            tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = DarkBg
+                    containerColor = MaterialTheme.colorScheme.background
                 )
             )
         },
-        containerColor = DarkBg
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -100,7 +105,7 @@ fun LibraryScreen(
                 .padding(paddingValues)
         ) {
             if (!hasPermission) {
-                // Permission screen
+                // Permission screen - Responsive
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -109,15 +114,15 @@ fun LibraryScreen(
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(32.dp)
+                        modifier = Modifier.padding(horizontal = adaptivePadding * 2)
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(80.dp)
-                                .clip(RoundedCornerShape(20.dp))
+                                .size((200.dp.value * 0.4f).coerceIn(64f, 100f).toFloat().dp)
+                                .clip(RoundedCornerShape(24.dp))
                                 .background(
                                     Brush.linearGradient(
-                                        listOf(MuzicGradientStart, MuzicGradientEnd)
+                                        listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)
                                     )
                                 ),
                             contentAlignment = Alignment.Center
@@ -125,51 +130,47 @@ fun LibraryScreen(
                             Icon(
                                 imageVector = Icons.Rounded.FolderOpen,
                                 contentDescription = null,
-                                tint = TextPrimary,
+                                tint = MaterialTheme.colorScheme.onPrimary,
                                 modifier = Modifier.size(40.dp)
                             )
                         }
-                        Spacer(modifier = Modifier.height(20.dp))
+                        Spacer(modifier = Modifier.height(24.dp))
                         Text(
                             text = "Permission Required",
                             style = MaterialTheme.typography.headlineSmall,
-                            color = TextPrimary,
-                            fontWeight = FontWeight.Bold
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             text = "Muzic needs access to your music files to play them.",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                            textAlign = TextAlign.Center
                         )
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(32.dp))
                         Button(
-                            onClick = {
-                                permissionLauncher.launch(PermissionHelper.getRequiredPermissions())
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = MuzicRed),
-                            shape = RoundedCornerShape(12.dp)
+                            onClick = { permissionLauncher.launch(PermissionHelper.getRequiredPermissions()) }
                         ) {
-                            Text("Grant Permission", fontWeight = FontWeight.SemiBold)
+                            Text("Grant Access")
                         }
                     }
                 }
             } else {
-                // Tab Row - Clean & modern
+                // Tab Row - Responsive padding
                 ScrollableTabRow(
                     selectedTabIndex = pagerState.currentPage,
-                    containerColor = DarkBg,
-                    contentColor = TextPrimary,
-                    edgePadding = 16.dp,
+                    containerColor = Color.Transparent,
+                    contentColor = MaterialTheme.colorScheme.primary,
+                    edgePadding = adaptivePadding,
                     indicator = { tabPositions ->
                         if (pagerState.currentPage < tabPositions.size) {
                             TabRowDefaults.SecondaryIndicator(
                                 modifier = Modifier
-                                    .tabIndicatorOffset(tabPositions[pagerState.currentPage])
-                                    .padding(horizontal = 16.dp)
-                                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)),
-                                color = MuzicRed,
-                                height = 4.dp
+                                    .tabIndicatorOffset(tabPositions[pagerState.currentPage]),
+                                color = MaterialTheme.colorScheme.primary,
+                                height = 3.dp
                             )
                         }
                     },
@@ -187,10 +188,11 @@ fun LibraryScreen(
                                 Text(
                                     text = title,
                                     fontWeight = if (pagerState.currentPage == index) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (pagerState.currentPage == index) MuzicRed else TextSecondary,
                                     fontSize = 14.sp
                                 )
-                            }
+                            },
+                            selectedContentColor = MaterialTheme.colorScheme.primary,
+                            unselectedContentColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
                         )
                     }
                 }
@@ -216,7 +218,7 @@ fun LibraryScreen(
                         2 -> ArtistsTab(
                             artists = uiState.artists,
                             isLoading = uiState.isLoading,
-                            onArtistClick = { }
+                            onArtistClick = { artist -> onNavigateToArtist(artist.name) }
                         )
                         3 -> PlaylistsTab(
                             playlists = uiState.playlists,
@@ -240,10 +242,10 @@ fun LibraryScreen(
     if (showCreatePlaylistDialog) {
         AlertDialog(
             onDismissRequest = { showCreatePlaylistDialog = false },
-            containerColor = DarkSurface,
+            containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(20.dp),
             title = {
-                Text("New Playlist", color = TextPrimary, fontWeight = FontWeight.Bold)
+                Text("New Playlist", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
             },
             text = {
                 OutlinedTextField(
@@ -253,9 +255,9 @@ fun LibraryScreen(
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MuzicRed,
-                        cursorColor = MuzicRed,
-                        focusedLabelColor = MuzicRed
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        cursorColor = MaterialTheme.colorScheme.primary,
+                        focusedLabelColor = MaterialTheme.colorScheme.primary
                     )
                 )
             },
@@ -269,12 +271,12 @@ fun LibraryScreen(
                         }
                     }
                 ) {
-                    Text("Create", color = MuzicRed, fontWeight = FontWeight.Bold)
+                    Text("Create", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showCreatePlaylistDialog = false }) {
-                    Text("Cancel", color = TextSecondary)
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                 }
             }
         )

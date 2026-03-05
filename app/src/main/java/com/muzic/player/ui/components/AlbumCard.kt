@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.muzic.player.ui.components.bounceClick
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material3.*
@@ -28,40 +29,28 @@ fun AlbumCard(
 ) {
     Column(
         modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .bounceClick(onClick = onClick)
             .padding(6.dp)
-            .clickable(onClick = onClick)
     ) {
         // Album art
-        Box(
+        MuzicImage(
+            model = album.albumArtUri,
+            contentDescription = album.name,
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(1f)
-                .clip(RoundedCornerShape(14.dp))
-                .background(DarkSurface),
-            contentAlignment = Alignment.Center
-        ) {
-            AsyncImage(
-                model = album.albumArtUri,
-                contentDescription = album.name,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-            if (album.albumArtUri == null) {
-                Icon(
-                    imageVector = Icons.Rounded.Album,
-                    contentDescription = null,
-                    tint = TextTertiary,
-                    modifier = Modifier.size(40.dp)
-                )
-            }
-        }
+                .aspectRatio(1f),
+            fallbackText = album.name,
+            cornerRadius = 14.dp,
+            iconSize = 40.dp
+        )
 
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
             text = album.name,
             style = MaterialTheme.typography.bodyMedium,
-            color = TextPrimary,
+            color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -70,7 +59,7 @@ fun AlbumCard(
         Text(
             text = album.artist,
             style = MaterialTheme.typography.bodySmall,
-            color = TextSecondary,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             fontSize = 11.sp

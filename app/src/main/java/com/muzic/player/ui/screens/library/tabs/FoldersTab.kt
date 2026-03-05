@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.muzic.player.data.model.Folder
 import com.muzic.player.ui.theme.*
@@ -31,7 +32,7 @@ fun FoldersTab(
             isLoading -> {
                 CircularProgressIndicator(
                     modifier = Modifier.align(Alignment.Center),
-                    color = ElectricPurple
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
             folders.isEmpty() -> {
@@ -42,18 +43,19 @@ fun FoldersTab(
                     Icon(
                         imageVector = Icons.Rounded.FolderOpen,
                         contentDescription = null,
-                        tint = TextTertiary,
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
                         modifier = Modifier.size(64.dp)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = "No folders found",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
                 }
             }
             else -> {
+                val adaptivePadding = getAdaptivePadding()
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(vertical = 8.dp)
@@ -62,8 +64,8 @@ fun FoldersTab(
                         Text(
                             text = "${folders.size} folders",
                             style = MaterialTheme.typography.labelMedium,
-                            color = TextTertiary,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            modifier = Modifier.padding(horizontal = adaptivePadding, vertical = 8.dp)
                         )
                     }
 
@@ -75,36 +77,37 @@ fun FoldersTab(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { onFolderClick(folder) }
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                                .padding(horizontal = adaptivePadding, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
                                 modifier = Modifier
                                     .size(48.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(WarningOrange.copy(alpha = 0.15f)),
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.Folder,
                                     contentDescription = null,
-                                    tint = WarningOrange,
+                                    tint = MaterialTheme.colorScheme.secondary,
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = folder.name,
                                     style = MaterialTheme.typography.bodyLarge,
-                                    color = SoftWhite,
-                                    maxLines = 1,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 2,
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    text = "${folder.songCount} songs • ${folder.path}",
+                                    text = "${folder.songCount} songs",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = TextSecondary,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -113,7 +116,7 @@ fun FoldersTab(
                     }
 
                     item {
-                        Spacer(modifier = Modifier.height(80.dp))
+                        Spacer(modifier = Modifier.height(144.dp))
                     }
                 }
             }

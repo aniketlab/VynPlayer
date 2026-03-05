@@ -2,9 +2,15 @@ package com.muzic.player.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -15,8 +21,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
+import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.HazeStyle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -36,102 +49,132 @@ fun MuzicAppContent(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
-    // Check if bottom nav should be shown
-    val showBottomNav = currentDestination?.route in BottomNavScreens.map { it.route }
-
+    val hiddenRoutes = setOf(Screen.Splash.route, Screen.NowPlaying.route)
+    val showBottomNav = currentDestination?.route != null && currentDestination.route !in hiddenRoutes
     val playbackState by viewModel.playbackState.collectAsStateWithLifecycle()
+    val hazeState = remember { HazeState() }
 
     Scaffold(
-        bottomBar = {
-            AnimatedVisibility(
-                visible = showBottomNav,
-                enter = slideInVertically(initialOffsetY = { it }),
-                exit = slideOutVertically(targetOffsetY = { it })
+        containerColor = Color.Transparent
+    ) { paddingValues ->
+        // Outer box spans the entire screen (edge to edge)
+        Box(modifier = Modifier.fillMaxSize()) {
+            
+            // Content box (handles top/bottom status bars)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .zIndex(0f)
+                    .haze(state = hazeState)
             ) {
-                Surface(
-                    color = DarkSurface,
-                    shadowElevation = 16.dp,
-                    modifier = Modifier.fillMaxWidth()
+                MuzicNavGraph(navController = navController)
+            }
+
+            // Floating bottom section (Anchored to absolute screen bottom)
+            if (showBottomNav) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .background(Color.Transparent)
+                        // 1. apply gesture bar inset
+                        .navigationBarsPadding()
+                        // 2. apply small gap exactly above the gesture bar
+                        .padding(bottom = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    NavigationBar(
-                        containerColor = DarkSurface,
-                        contentColor = TextSecondary,
-                        modifier = Modifier
-                            .height(80.dp)
-                            .padding(top = 4.dp), // Apple-style padding
-                        tonalElevation = 0.dp
+                    // ─── MINI PLAYER ───
+                    AnimatedVisibility(
+                        visible = playbackState.currentSong != null,
+                        enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(400)) + fadeIn(animationSpec = tween(400)),
+                        exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400)) + fadeOut(animationSpec = tween(400))
                     ) {
-                        BottomNavScreens.forEach { screen ->
-                            val selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true
-                            val scale by animateFloatAsState(targetValue = if (selected) 1.2f else 1.0f, label = "scaleAnim")
-                            
-                            NavigationBarItem(
-                                icon = {
+                        MiniPlayer(
+                            currentSong = playbackState.currentSong,
+                            isPlaying = playbackState.isPlaying,
+                            progress = if (playbackState.duration > 0)
+                                playbackState.currentPosition.toFloat() / playbackState.duration.toFloat()
+                            else 0f,
+                            onPlayerClick = { navController.navigate(Screen.NowPlaying.route) },
+                            onPlayPauseClick = { viewModel.togglePlayPause() },
+                            onNextClick = { viewModel.skipToNext() },
+                            onDismiss = { viewModel.stopPlayback() },
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp, vertical = 4.dp)
+                                .zIndex(3f),
+                            hazeState = hazeState
+                        )
+                    }
+
+                    // ─── FLOATING DOCK ───
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .fillMaxWidth()
+                            .height(64.dp)
+                            .zIndex(2f)
+                            .clip(RoundedCornerShape(26.dp))
+                            .hazeChild(state = hazeState, shape = RoundedCornerShape(26.dp), style = HazeStyle(blurRadius = 22.dp))
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), RoundedCornerShape(26.dp))
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), RoundedCornerShape(26.dp))
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            BottomNavScreens.forEach { screen ->
+                                val selected = currentDestination?.hierarchy?.any {
+                                    it.route == screen.route
+                                } == true
+
+                                val scale by animateFloatAsState(
+                                    targetValue = if (selected) 1.08f else 1.0f,
+                                    animationSpec = tween(200),
+                                    label = "dockScale"
+                                )
+
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .clickable(
+                                            indication = null,
+                                            interactionSource = remember { MutableInteractionSource() }
+                                        ) {
+                                            navController.navigate(screen.route) {
+                                                popUpTo(navController.graph.findStartDestination().id) {
+                                                    saveState = true
+                                                }
+                                                launchSingleTop = true
+                                                restoreState = true
+                                            }
+                                        },
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
                                     Icon(
                                         imageVector = screen.icon!!,
                                         contentDescription = screen.title,
-                                        modifier = Modifier.size(26.dp).scale(scale)
+                                        tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier
+                                            .size(22.dp)
+                                            .scale(scale)
                                     )
-                                },
-                                label = {
+                                    Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = screen.title!!,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        modifier = Modifier.padding(top = 4.dp)
+                                        text = screen.title!!.uppercase(),
+                                        fontSize = 9.sp,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                        letterSpacing = 0.3.sp,
+                                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                },
-                                selected = selected,
-                                onClick = {
-                                    navController.navigate(screen.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
-                                            saveState = true
-                                        }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                },
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = MuzicRed,
-                                    selectedTextColor = MuzicRed,
-                                    unselectedIconColor = TextSecondary,
-                                    unselectedTextColor = TextSecondary,
-                                    indicatorColor = Color.Transparent
-                                )
-                            )
+                                }
+                            }
                         }
                     }
                 }
-            }
-        },
-        containerColor = DarkBg
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            MuzicNavGraph(navController = navController)
-            
-            // Floating MiniPlayer above Bottom Navigation
-            AnimatedVisibility(
-                visible = showBottomNav && playbackState.currentSong != null,
-                enter = slideInVertically(initialOffsetY = { it }),
-                exit = slideOutVertically(targetOffsetY = { it }),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 8.dp) // padding between bottom nav and mini player
-            ) {
-                MiniPlayer(
-                    currentSong = playbackState.currentSong,
-                    isPlaying = playbackState.isPlaying,
-                    progress = if (playbackState.duration > 0)
-                        playbackState.currentPosition.toFloat() / playbackState.duration.toFloat()
-                    else 0f,
-                    onPlayerClick = { navController.navigate(Screen.NowPlaying.route) },
-                    onPlayPauseClick = { viewModel.togglePlayPause() },
-                    onNextClick = { viewModel.skipToNext() },
-                    onDismiss = { viewModel.stopPlayback() }
-                )
             }
         }
     }

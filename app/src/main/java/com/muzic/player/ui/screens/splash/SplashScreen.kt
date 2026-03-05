@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,11 +15,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.muzic.player.ui.theme.*
+import com.muzic.player.ui.theme.getAdaptivePadding
 import kotlinx.coroutines.delay
 
 @Composable
@@ -36,50 +40,69 @@ fun SplashScreen(onNavigateToLibrary: () -> Unit) {
 
     val textAlpha by animateFloatAsState(
         targetValue = if (startAnimation) 1f else 0f,
-        animationSpec = tween(800, delayMillis = 400),
+        animationSpec = tween(300, delayMillis = 100),
         label = "textAlpha"
     )
 
     val taglineAlpha by animateFloatAsState(
         targetValue = if (startAnimation) 1f else 0f,
-        animationSpec = tween(600, delayMillis = 800),
+        animationSpec = tween(300, delayMillis = 200),
         label = "taglineAlpha"
     )
 
     LaunchedEffect(Unit) {
         startAnimation = true
-        delay(2200)
+        delay(800)
         onNavigateToLibrary()
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(DarkBg),
+            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // App Icon
+            // Proper App Logo (Stylized Music Note with ring)
             Box(
                 modifier = Modifier
-                    .size(100.dp)
-                    .scale(iconScale)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(MuzicGradientStart, MuzicGradientEnd)
-                        )
-                    ),
+                    .size(120.dp)
+                    .scale(iconScale),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.MusicNote,
-                    contentDescription = null,
-                    tint = TextPrimary,
-                    modifier = Modifier.size(50.dp)
+                // Outer Glow/Ring
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
                 )
+                
+                // Main Logo Box
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    Color(0xFF80CBC4),
+                                    Color(0xFF4DB6AC)
+                                )
+                            )
+                        )
+                        .shadow(8.dp, RoundedCornerShape(22.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.MusicNote,
+                        contentDescription = null,
+                        tint = Color(0xFF004D40),
+                        modifier = Modifier.size(44.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -89,7 +112,7 @@ fun SplashScreen(onNavigateToLibrary: () -> Unit) {
                 text = "Muzic",
                 fontSize = 36.sp,
                 fontWeight = FontWeight.Bold,
-                color = TextPrimary,
+                color = MaterialTheme.colorScheme.onBackground,
                 letterSpacing = 3.sp,
                 modifier = Modifier.alpha(textAlpha)
             )
@@ -100,7 +123,7 @@ fun SplashScreen(onNavigateToLibrary: () -> Unit) {
             Text(
                 text = "Pure Sound. No Noise.",
                 fontSize = 14.sp,
-                color = TextSecondary,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
                 fontWeight = FontWeight.Medium,
                 letterSpacing = 2.sp,
                 modifier = Modifier.alpha(taglineAlpha)

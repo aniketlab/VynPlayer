@@ -27,7 +27,7 @@ fun AlbumsTab(
             isLoading -> {
                 CircularProgressIndicator(
                     modifier = Modifier.align(Alignment.Center),
-                    color = ElectricPurple
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
             albums.isEmpty() -> {
@@ -38,22 +38,30 @@ fun AlbumsTab(
                     Icon(
                         imageVector = Icons.Rounded.Album,
                         contentDescription = null,
-                        tint = TextTertiary,
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
                         modifier = Modifier.size(64.dp)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = "No albums found",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
                 }
             }
             else -> {
+                val adaptivePadding = getAdaptivePadding()
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 160.dp),
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(8.dp)
+                    contentPadding = PaddingValues(
+                        start = adaptivePadding,
+                        top = 16.dp,
+                        end = adaptivePadding,
+                        bottom = 144.dp
+                    ),
+                    horizontalArrangement = Arrangement.spacedBy(adaptivePadding),
+                    verticalArrangement = Arrangement.spacedBy(adaptivePadding)
                 ) {
                     items(
                         items = albums,

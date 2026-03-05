@@ -59,6 +59,12 @@ dependencies {
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.datastore.preferences)
 
+    // Haze Blur
+    implementation(libs.haze)
+
+    // Palette (dynamic colors from album art)
+    implementation(libs.androidx.palette)
+
     // Compose BOM
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
@@ -67,6 +73,7 @@ dependencies {
     implementation(libs.compose.icons.extended)
     implementation(libs.compose.animation)
     implementation(libs.compose.foundation)
+    implementation(libs.compose.constraintlayout)
     debugImplementation(libs.compose.ui.tooling)
     implementation(libs.compose.ui.tooling.preview)
 

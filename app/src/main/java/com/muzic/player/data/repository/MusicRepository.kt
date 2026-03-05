@@ -12,13 +12,25 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.launch
+import android.net.Uri
+import android.content.ContentUris
+import com.muzic.player.data.local.dao.SongDao
+import com.muzic.player.data.local.entity.SongEntity
+import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
+
+import com.muzic.player.data.local.dao.PlaybackHistoryDao
+import com.muzic.player.data.local.entity.PlaybackHistoryEntity
 
 @Singleton
 class MusicRepository @Inject constructor(
     private val mediaStoreScanner: MediaStoreScanner,
-    private val favoriteDao: FavoriteDao
+    private val favoriteDao: FavoriteDao,
+    private val playbackHistoryDao: PlaybackHistoryDao,
+    private val songDao: SongDao
 ) {
     // Cached data
     private var cachedSongs: List<Song>? = null
@@ -27,9 +39,29 @@ class MusicRepository @Inject constructor(
     private var cachedFolders: List<Folder>? = null
 
     fun getAllSongs(): Flow<List<Song>> = flow {
-        val songs = cachedSongs ?: mediaStoreScanner.scanAllSongs().also { cachedSongs = it }
+        // 1. Memory Cache
+        cachedSongs?.let {
+            val favoriteIds = favoriteDao.getAllFavoriteIds().first().toSet()
+            emit(it.map { s -> s.copy(isFavorite = s.id in favoriteIds) })
+            return@flow
+        }
+
+        // 2. DB Cache
+        val dbSongs = songDao.getAllSongs().first()
+        if (dbSongs.isNotEmpty()) {
+            val songs = dbSongs.map { it.toModel() }
+            cachedSongs = songs
+            val favoriteIds = favoriteDao.getAllFavoriteIds().first().toSet()
+            emit(songs.map { s -> s.copy(isFavorite = s.id in favoriteIds) })
+            return@flow
+        }
+
+        // 3. Scan
+        val scannedSongs = mediaStoreScanner.scanAllSongs()
+        songDao.insertSongs(scannedSongs.map { it.toEntity() })
+        cachedSongs = scannedSongs
         val favoriteIds = favoriteDao.getAllFavoriteIds().first().toSet()
-        emit(songs.map { it.copy(isFavorite = it.id in favoriteIds) })
+        emit(scannedSongs.map { s -> s.copy(isFavorite = s.id in favoriteIds) })
     }.flowOn(Dispatchers.IO)
 
     fun getAllAlbums(): Flow<List<Album>> = flow {
@@ -80,12 +112,51 @@ class MusicRepository @Inject constructor(
         return allSongs.find { it.id == songId }
     }
 
-    fun refreshLibrary() {
+    suspend fun refreshLibrary() = withContext(Dispatchers.IO) {
         cachedSongs = null
         cachedAlbums = null
         cachedArtists = null
         cachedFolders = null
+        songDao.clearCache()
     }
+
+    private fun Song.toEntity() = SongEntity(
+        id = id,
+        title = title,
+        artist = artist,
+        album = album,
+        albumId = albumId,
+        duration = duration,
+        path = path,
+        uriString = uri.toString(),
+        trackNumber = trackNumber,
+        year = year,
+        size = size,
+        dateAdded = dateAdded,
+        dateModified = dateModified,
+        mimeType = mimeType,
+        folderName = folderName,
+        folderPath = folderPath
+    )
+
+    private fun SongEntity.toModel() = Song(
+        id = id,
+        title = title,
+        artist = artist,
+        album = album,
+        albumId = albumId,
+        duration = duration,
+        path = path,
+        uri = Uri.parse(uriString),
+        trackNumber = trackNumber,
+        year = year,
+        size = size,
+        dateAdded = dateAdded,
+        dateModified = dateModified,
+        mimeType = mimeType,
+        folderName = folderName,
+        folderPath = folderPath
+    )
 
     suspend fun searchSongs(query: String): List<Song> = withContext(Dispatchers.IO) {
         val allSongs = cachedSongs ?: mediaStoreScanner.scanAllSongs().also { cachedSongs = it }
@@ -96,4 +167,13 @@ class MusicRepository @Inject constructor(
                     it.album.lowercase().contains(lowerQuery)
         }
     }
+
+    // Playback History
+    suspend fun recordSongPlayed(songId: Long) {
+        playbackHistoryDao.insert(PlaybackHistoryEntity(songId = songId))
+    }
+
+    fun getTopSongs(limit: Int): Flow<List<com.muzic.player.data.local.dao.SongPlayCount>> = playbackHistoryDao.getTopSongs(limit)
+
+    fun getRecentSongs(limit: Int): Flow<List<Long>> = playbackHistoryDao.getRecentSongs(limit)
 }

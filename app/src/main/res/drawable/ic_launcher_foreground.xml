@@ -1,10 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Music note icon -->
+    
+    <!-- 1. Outer Halo Ring (Subtle Glow) -->
     <path
-        android:fillColor="#7C4DFF"
-        android:pathData="M54,27 L54,63 C51.8,61.8 49.2,61 46.5,61 C40.7,61 36,64.9 36,69.75 C36,74.6 40.7,78.5 46.5,78.5 C52.3,78.5 57,74.6 57,69.75 L57,39 L69,36 L69,57 C66.8,55.8 64.2,55 61.5,55 C55.7,55 51,58.9 51,63.75 C51,68.6 55.7,72.5 61.5,72.5 C67.3,72.5 72,68.6 72,63.75 L72,27 L54,27Z" />
+        android:fillColor="#15133633"
+        android:pathData="M54,54m-48,0a48,48 0,1 1,96 0a48,48 0,1 1,-96 0" />
+
+    <!-- 2. Main Squircle Body (Mint/Teal Gradient) -->
+    <!-- Positioned within the safe zone (66dp total) -->
+    <path
+        android:pathData="M27,27h54a14,14 0,0 1,14 14v54a14,14 0,0 1,-14 14h-54a14,14 0,0 1,-14 -14v-54a14,14 0,0 1,14 -14z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="27"
+                android:startY="27"
+                android:endX="95"
+                android:endY="95"
+                android:type="linear">
+                <item android:offset="0" android:color="#FFB2DFDB" />
+                <item android:offset="1" android:color="#FF80CBC4" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    
+    <!-- 3. Inner Detail Square (Subtle highlight) -->
+    <path
+        android:fillColor="#20FFFFFF"
+        android:pathData="M38,38h32v32h-32z" />
+
+    <!-- 4. The Centerpiece Music Note (Deep Forest Green) -->
+    <!-- Perfectly centered and thick, matching the user's logo -->
+    <path
+        android:fillColor="#FF004D40"
+        android:pathData="M65,34 L54,34 C52.9,34 52,34.9 52,36 L52,65.5 C50.2,64.2 47.7,63.5 45,63.5 C38.4,63.5 33,67.5 33,72.5 C33,77.5 38.4,81.5 45,81.5 C51.6,81.5 57,77.5 57,72.5 L57,47.5 L65,45.5 C66.1,45.2 67,44.2 67,43 L67,36 C67,34.9 66.1,34 65,34 Z" />
 </vector>

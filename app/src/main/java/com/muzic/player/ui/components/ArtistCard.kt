@@ -18,6 +18,9 @@ import androidx.compose.ui.unit.sp
 import com.muzic.player.data.model.Artist
 import com.muzic.player.ui.theme.*
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.muzic.player.ui.components.bounceClick
+
 @Composable
 fun ArtistCard(
     artist: Artist,
@@ -27,7 +30,8 @@ fun ArtistCard(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clip(RoundedCornerShape(12.dp))
+            .bounceClick(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -36,13 +40,13 @@ fun ArtistCard(
             modifier = Modifier
                 .size(48.dp)
                 .clip(CircleShape)
-                .background(DarkSurfaceElevated),
+                .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = artist.name.take(1).uppercase(),
                 style = MaterialTheme.typography.titleMedium,
-                color = MuzicRed,
+                color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp
             )
@@ -54,7 +58,7 @@ fun ArtistCard(
             Text(
                 text = artist.name,
                 style = MaterialTheme.typography.bodyLarge,
-                color = TextPrimary,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -63,7 +67,7 @@ fun ArtistCard(
             Text(
                 text = "${artist.songCount} songs",
                 style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 fontSize = 12.sp
             )
         }

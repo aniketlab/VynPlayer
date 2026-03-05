@@ -41,7 +41,7 @@ fun PlaybackControls(
             Icon(
                 imageVector = Icons.Rounded.Shuffle,
                 contentDescription = "Shuffle",
-                tint = if (isShuffleEnabled) MuzicRed else TextTertiary,
+                tint = if (isShuffleEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                 modifier = Modifier.size(22.dp)
             )
         }
@@ -54,7 +54,7 @@ fun PlaybackControls(
             Icon(
                 imageVector = Icons.Rounded.SkipPrevious,
                 contentDescription = "Previous",
-                tint = TextPrimary,
+                tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(34.dp)
             )
         }
@@ -65,12 +65,12 @@ fun PlaybackControls(
             modifier = Modifier
                 .size(68.dp)
                 .clip(CircleShape)
-                .background(MuzicRed)
+                .background(MaterialTheme.colorScheme.primary)
         ) {
             Icon(
                 imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                 contentDescription = if (isPlaying) "Pause" else "Play",
-                tint = TextPrimary,
+                tint = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.size(36.dp)
             )
         }
@@ -83,7 +83,7 @@ fun PlaybackControls(
             Icon(
                 imageVector = Icons.Rounded.SkipNext,
                 contentDescription = "Next",
-                tint = TextPrimary,
+                tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(34.dp)
             )
         }
@@ -100,7 +100,7 @@ fun PlaybackControls(
                     RepeatMode.OFF -> Icons.Rounded.Repeat
                 },
                 contentDescription = "Repeat",
-                tint = if (repeatMode != RepeatMode.OFF) MuzicRed else TextTertiary,
+                tint = if (repeatMode != RepeatMode.OFF) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                 modifier = Modifier.size(22.dp)
             )
         }

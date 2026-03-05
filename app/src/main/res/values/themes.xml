@@ -3,10 +3,12 @@
     <style name="Theme.Muzic" parent="android:Theme.Material.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">#102218</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
     </style>
 
     <style name="Theme.Muzic.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">#121212</item>
+        <item name="windowSplashScreenBackground">#102218</item>
         <item name="postSplashScreenTheme">@style/Theme.Muzic</item>
     </style>
 </resources>

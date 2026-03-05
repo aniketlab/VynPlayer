@@ -15,6 +15,15 @@ import com.muzic.player.ui.screens.nowplaying.NowPlayingScreen
 import com.muzic.player.ui.screens.search.SearchScreen
 import com.muzic.player.ui.screens.settings.SettingsScreen
 import com.muzic.player.ui.screens.splash.SplashScreen
+import com.muzic.player.ui.screens.discover.DiscoverScreen
+import com.muzic.player.ui.screens.profile.ProfileScreen
+import com.muzic.player.ui.screens.profile.FavoritesScreen
+import com.muzic.player.ui.screens.profile.RecentlyPlayedScreen
+import com.muzic.player.ui.screens.profile.PlaylistsScreen
+import com.muzic.player.ui.screens.profile.PlaylistDetailScreen
+import com.muzic.player.ui.screens.artist.ArtistDetailScreen
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 
 @Composable
 fun MuzicNavGraph(
@@ -42,7 +51,23 @@ fun MuzicNavGraph(
 
         composable(Screen.Home.route) {
             HomeScreen(
-                onNavigateToSearch = { navController.navigate(Screen.Search.route) }
+                onNavigateToSearch = { navController.navigate(Screen.Search.route) },
+                onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
+                onNavigateToArtist = { artistName: String ->
+                    navController.navigate(Screen.ArtistDetail.createRoute(artistName))
+                }
+            )
+        }
+
+        composable(Screen.Discover.route) {
+            DiscoverScreen()
+        }
+
+        composable(Screen.Profile.route) {
+            ProfileScreen(
+                onNavigateToFavorites = { navController.navigate(Screen.Favorites.route) },
+                onNavigateToRecentlyPlayed = { navController.navigate(Screen.RecentlyPlayed.route) },
+                onNavigateToPlaylists = { navController.navigate("playlists") }
             )
         }
 
@@ -51,7 +76,11 @@ fun MuzicNavGraph(
         }
 
         composable(Screen.Library.route) {
-            LibraryScreen()
+            LibraryScreen(
+                onNavigateToArtist = { artistName ->
+                    navController.navigate(Screen.ArtistDetail.createRoute(artistName))
+                }
+            )
         }
 
         composable(Screen.Settings.route) {
@@ -76,6 +105,49 @@ fun MuzicNavGraph(
             }
         ) {
             NowPlayingScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.Favorites.route) {
+            FavoritesScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.RecentlyPlayed.route) {
+            RecentlyPlayedScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("playlists") {
+            PlaylistsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToPlaylistDetail = { playlistId ->
+                    navController.navigate(Screen.PlaylistDetail.createRoute(playlistId))
+                }
+            )
+        }
+
+        composable(
+            route = Screen.PlaylistDetail.route,
+            arguments = listOf(navArgument("playlistId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val playlistId = backStackEntry.arguments?.getLong("playlistId") ?: 0L
+            PlaylistDetailScreen(
+                playlistId = playlistId,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.ArtistDetail.route,
+            arguments = listOf(navArgument("artistName") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val artistName = backStackEntry.arguments?.getString("artistName") ?: "Unknown Artist"
+            ArtistDetailScreen(
+                artistName = artistName,
                 onNavigateBack = { navController.popBackStack() }
             )
         }

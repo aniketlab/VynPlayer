@@ -16,13 +16,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.muzic.player.ui.components.SongItem
 import com.muzic.player.ui.screens.library.LibraryViewModel
 import com.muzic.player.ui.theme.*
+import androidx.compose.material.icons.rounded.SearchOff
+import androidx.compose.material.icons.rounded.LibraryMusic
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,19 +56,21 @@ fun SearchScreen(
         focusRequester.requestFocus()
     }
 
+    val adaptivePadding = getAdaptivePadding()
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(DarkBg)
+            .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
     ) {
         // Search Bar
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            shape = RoundedCornerShape(16.dp),
-            color = DarkSurface,
+                .padding(horizontal = adaptivePadding, vertical = 16.dp),
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
             shadowElevation = 4.dp
         ) {
             TextField(
@@ -72,24 +79,31 @@ fun SearchScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focusRequester),
-                placeholder = { Text("Search songs, artists, albums...", color = TextTertiary) },
+                placeholder = { 
+                    Text(
+                        "Search songs, artists, albums...", 
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    ) 
+                },
                 leadingIcon = {
-                    Icon(Icons.Rounded.Search, contentDescription = "Search", tint = TextSecondary)
+                    Icon(Icons.Rounded.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary)
                 },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Rounded.Clear, contentDescription = "Clear", tint = TextSecondary)
+                            Icon(Icons.Rounded.Clear, contentDescription = "Clear", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 },
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = DarkSurface,
-                    unfocusedContainerColor = DarkSurface,
-                    focusedTextColor = TextPrimary,
-                    cursorColor = MuzicRed,
-                    focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                    unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    cursorColor = MaterialTheme.colorScheme.primary,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent
                 ),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -99,15 +113,36 @@ fun SearchScreen(
 
         if (searchQuery.isNotBlank()) {
             if (filteredSongs.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize().padding(bottom = 80.dp), contentAlignment = Alignment.Center) {
-                    Text("No results found", color = TextSecondary)
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(bottom = 144.dp), 
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Rounded.SearchOff,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                            modifier = Modifier.size(64.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "No results found", 
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), 
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 100.dp)
+                    contentPadding = PaddingValues(
+                        start = adaptivePadding,
+                        end = adaptivePadding,
+                        bottom = 144.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(filteredSongs) { song ->
+                    items(filteredSongs, key = { it.id }) { song ->
                         SongItem(
                             song = song,
                             isPlaying = playbackState.currentSong?.id == song.id,
@@ -118,8 +153,25 @@ fun SearchScreen(
                 }
             }
         } else {
-            Box(modifier = Modifier.fillMaxSize().padding(bottom = 80.dp), contentAlignment = Alignment.Center) {
-                Text("Search your library", color = TextTertiary, style = MaterialTheme.typography.titleMedium)
+            Box(
+                modifier = Modifier.fillMaxSize().padding(bottom = 144.dp), 
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Rounded.LibraryMusic,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                        modifier = Modifier.size(100.dp)
+                    )
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Text(
+                        "Search your library", 
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), 
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
     }

@@ -17,6 +17,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.muzic.player.data.model.Playlist
 import com.muzic.player.ui.theme.*
+import androidx.compose.ui.text.font.FontWeight
 
 @Composable
 fun PlaylistsTab(
@@ -32,10 +33,11 @@ fun PlaylistsTab(
             isLoading -> {
                 CircularProgressIndicator(
                     modifier = Modifier.align(Alignment.Center),
-                    color = ElectricPurple
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
             else -> {
+                val adaptivePadding = getAdaptivePadding()
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(vertical = 8.dp)
@@ -46,28 +48,29 @@ fun PlaylistsTab(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable(onClick = onCreatePlaylistClick)
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                                .padding(horizontal = adaptivePadding, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
                                 modifier = Modifier
                                     .size(48.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(ElectricPurple.copy(alpha = 0.2f)),
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.Add,
                                     contentDescription = "Create playlist",
-                                    tint = ElectricPurple,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(28.dp)
                                 )
                             }
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(14.dp))
                             Text(
                                 text = "Create New Playlist",
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = ElectricPurple
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
@@ -78,34 +81,35 @@ fun PlaylistsTab(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { /* Navigate to favorites */ }
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                                .padding(horizontal = adaptivePadding, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
                                 modifier = Modifier
                                     .size(48.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(ErrorRed.copy(alpha = 0.2f)),
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.Favorite,
                                     contentDescription = "Favorites",
-                                    tint = ErrorRed,
+                                    tint = MaterialTheme.colorScheme.tertiary,
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(14.dp))
                             Column {
                                 Text(
                                     text = "Favorites",
                                     style = MaterialTheme.typography.bodyLarge,
-                                    color = SoftWhite
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
                                     text = "Your liked songs",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = TextSecondary
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                 )
                             }
                         }
@@ -114,8 +118,8 @@ fun PlaylistsTab(
                     if (playlists.isNotEmpty()) {
                         item {
                             HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                color = DividerColor
+                                modifier = Modifier.padding(horizontal = adaptivePadding, vertical = 8.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                             )
                         }
                     }
@@ -128,43 +132,44 @@ fun PlaylistsTab(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { onPlaylistClick(playlist) }
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                                .padding(horizontal = adaptivePadding, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
                                 modifier = Modifier
                                     .size(48.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(DeepIndigoLight),
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.QueueMusic,
                                     contentDescription = null,
-                                    tint = ElectricPurpleLight,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = playlist.name,
                                     style = MaterialTheme.typography.bodyLarge,
-                                    color = SoftWhite,
-                                    maxLines = 1,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 2,
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
                                     text = "${playlist.songCount} songs",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = TextSecondary
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                 )
                             }
                             IconButton(onClick = { onDeletePlaylistClick(playlist.id) }) {
                                 Icon(
-                                    imageVector = Icons.Rounded.MoreVert,
-                                    contentDescription = "More",
-                                    tint = TextTertiary,
+                                    imageVector = Icons.Rounded.DeleteOutline,
+                                    contentDescription = "Delete",
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -172,7 +177,7 @@ fun PlaylistsTab(
                     }
 
                     item {
-                        Spacer(modifier = Modifier.height(80.dp))
+                        Spacer(modifier = Modifier.height(144.dp))
                     }
                 }
             }

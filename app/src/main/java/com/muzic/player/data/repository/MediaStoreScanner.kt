@@ -3,6 +3,7 @@ package com.muzic.player.data.repository
 import android.content.ContentUris
 import android.content.Context
 import android.net.Uri
+import android.media.MediaMetadataRetriever
 import android.os.Build
 import android.provider.MediaStore
 import com.muzic.player.data.model.Album
@@ -15,6 +16,8 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.muzic.player.util.MetadataUtils
+import com.muzic.player.util.MetadataUtils.MetadataType
 
 @Singleton
 class MediaStoreScanner @Inject constructor(
@@ -70,22 +73,89 @@ class MediaStoreScanner @Inject constructor(
             val mimeTypeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
 
             while (cursor.moveToNext()) {
-                val id = cursor.getLong(idColumn)
                 val path = cursor.getString(dataColumn) ?: continue
+                
+                // ─── Filter logic for non-music folders ───
+                val upperPath = path.uppercase()
+                val isJunkFolder = upperPath.contains("WHATSAPP") || 
+                                 upperPath.contains("TELEGRAM") || 
+                                 upperPath.contains("VOICE NOTES") || 
+                                 upperPath.contains("CALLRECORDING") || 
+                                 upperPath.contains("ANDROID/MEDIA")
+                
+                if (isJunkFolder) continue
+                
+                // Only scan from specific allowed parent directories if path contains them
+                val isAllowedFolder = upperPath.contains("/MUSIC/") || 
+                                    upperPath.contains("/SONGS/") || 
+                                    upperPath.contains("/DOWNLOADS/") ||
+                                    upperPath.contains("/DOWNLOAD/")
+                
+                if (!isAllowedFolder) continue
+
+                val id = cursor.getLong(idColumn)
                 val file = File(path)
                 val folderPath = file.parent ?: ""
                 val folderName = File(folderPath).name
+
+                var rawTitle = cursor.getString(titleColumn)
+                var rawArtist = cursor.getString(artistColumn)
+                var rawAlbum = cursor.getString(albumColumn)
+                val albumId = cursor.getLong(albumIdColumn)
+                var duration = cursor.getLong(durationColumn)
+
+                // ─── Fallback to MediaMetadataRetriever if needed ───
+                if (isSuspicious(rawArtist) || isSuspicious(rawAlbum) || isSuspicious(rawTitle)) {
+                    val mmr = MediaMetadataRetriever()
+                    try {
+                        mmr.setDataSource(path)
+                        if (isSuspicious(rawTitle)) rawTitle = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
+                        if (isSuspicious(rawArtist)) rawArtist = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
+                        if (isSuspicious(rawAlbum)) rawAlbum = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
+                        if (duration <= 0) duration = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong() ?: 0L
+                    } catch (_: Exception) {
+                    } finally {
+                        mmr.release()
+                    }
+                }
+
+                // ─── Fallback to FileName if artist is still missing ───
+                if (isSuspicious(rawArtist) || isSuspicious(rawTitle)) {
+                    val (extractedTitle, extractedArtist) = MetadataUtils.extractFromFileName(file.name)
+                    if (isSuspicious(rawTitle) && extractedTitle != null) rawTitle = extractedTitle
+                    if (isSuspicious(rawArtist) && extractedArtist != null) rawArtist = extractedArtist
+                }
+
+                // ─── Double check: Never copy TITLE into ARTIST ───
+                if (rawArtist != null && rawTitle != null && rawArtist.equals(rawTitle, ignoreCase = true)) {
+                    rawArtist = null
+                }
+
+                // ─── Fallback to Folder Name for Album if missing ───
+                if (isSuspicious(rawAlbum)) {
+                    rawAlbum = folderName
+                }
+
+                // ─── Clean junk patterns & format ───
+                val cleanTitle = MetadataUtils.cleanTitle(rawTitle ?: file.nameWithoutExtension)
+                val cleanArtist = MetadataUtils.cleanArtist(rawArtist ?: "")
+                val cleanAlbum = MetadataUtils.cleanTitle(rawAlbum ?: "")
+
+                // ─── Final Sanitization & Junk Filtering ───
+                val finalTitle = MetadataUtils.sanitize(cleanTitle, MetadataType.TITLE)
+                val finalArtist = MetadataUtils.sanitize(cleanArtist, MetadataType.ARTIST)
+                val finalAlbum = MetadataUtils.sanitize(cleanAlbum, MetadataType.ALBUM)
 
                 val contentUri = ContentUris.withAppendedId(audioUri, id)
 
                 songs.add(
                     Song(
                         id = id,
-                        title = cursor.getString(titleColumn) ?: file.nameWithoutExtension,
-                        artist = cursor.getString(artistColumn) ?: "<unknown>",
-                        album = cursor.getString(albumColumn) ?: "<unknown>",
-                        albumId = cursor.getLong(albumIdColumn),
-                        duration = cursor.getLong(durationColumn),
+                        title = finalTitle,
+                        artist = finalArtist,
+                        album = finalAlbum,
+                        albumId = albumId,
+                        duration = duration,
                         path = path,
                         uri = contentUri,
                         trackNumber = cursor.getInt(trackColumn),
@@ -129,11 +199,13 @@ class MediaStoreScanner @Inject constructor(
             val yearColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Albums.FIRST_YEAR)
 
             while (cursor.moveToNext()) {
+                val name = MetadataUtils.sanitize(cursor.getString(nameColumn), MetadataType.ALBUM)
+                val artist = MetadataUtils.sanitize(cursor.getString(artistColumn), MetadataType.ARTIST)
                 albums.add(
                     Album(
                         id = cursor.getLong(idColumn),
-                        name = cursor.getString(nameColumn) ?: "<unknown>",
-                        artist = cursor.getString(artistColumn) ?: "<unknown>",
+                        name = name,
+                        artist = artist,
                         songCount = cursor.getInt(songCountColumn),
                         year = cursor.getInt(yearColumn)
                     )
@@ -167,10 +239,11 @@ class MediaStoreScanner @Inject constructor(
             val albumCountColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Artists.NUMBER_OF_ALBUMS)
 
             while (cursor.moveToNext()) {
+                val name = MetadataUtils.sanitize(cursor.getString(nameColumn), MetadataType.ARTIST)
                 artists.add(
                     Artist(
                         id = cursor.getLong(idColumn),
-                        name = cursor.getString(nameColumn) ?: "<unknown>",
+                        name = name,
                         songCount = cursor.getInt(songCountColumn),
                         albumCount = cursor.getInt(albumCountColumn)
                     )
@@ -205,5 +278,11 @@ class MediaStoreScanner @Inject constructor(
 
     suspend fun getSongsForArtist(artistName: String): List<Song> = withContext(Dispatchers.IO) {
         scanAllSongs().filter { it.artist.equals(artistName, ignoreCase = true) }
+    }
+
+    private fun isSuspicious(text: String?): Boolean {
+        if (text == null || text.isBlank()) return true
+        val lower = text.lowercase()
+        return lower == "0" || lower == "<unknown>" || lower == "unknown" || lower == "null" || MetadataUtils.containsJunk(text)
     }
 }

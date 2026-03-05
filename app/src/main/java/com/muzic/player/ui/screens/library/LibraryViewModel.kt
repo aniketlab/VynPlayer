@@ -9,8 +9,10 @@ import com.muzic.player.data.model.Playlist
 import com.muzic.player.data.model.Song
 import com.muzic.player.data.repository.MusicRepository
 import com.muzic.player.data.repository.PlaylistRepository
+import com.muzic.player.data.preferences.UserPreferencesManager
 import com.muzic.player.player.PlaybackManager
 import com.muzic.player.player.PlaybackState
+import com.muzic.player.data.local.dao.SongPlayCount
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -26,13 +28,19 @@ data class LibraryUiState(
     val error: String? = null,
     val selectedTab: Int = 0,
     val searchQuery: String = "",
-    val searchResults: List<Song> = emptyList()
+    val searchResults: List<Song> = emptyList(),
+    val userDisplayName: String = "Music Lover",
+    val userSubtitle: String = "Music Enthusiast",
+    val userAvatarUrl: String? = null,
+    val recentSongs: List<Song> = emptyList(),
+    val topSongs: List<SongPlayCount> = emptyList()
 )
 
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
     private val musicRepository: MusicRepository,
     private val playlistRepository: PlaylistRepository,
+    private val userPreferencesManager: UserPreferencesManager,
     val playbackManager: PlaybackManager
 ) : ViewModel() {
 
@@ -43,6 +51,51 @@ class LibraryViewModel @Inject constructor(
 
     init {
         loadLibrary()
+        
+        viewModelScope.launch {
+            combine(
+                userPreferencesManager.userDisplayName,
+                userPreferencesManager.userSubtitle,
+                userPreferencesManager.userAvatarUrl
+            ) { name, sub, avatar ->
+                Triple(name, sub, avatar)
+            }.collect { (name, sub, avatar) ->
+                _uiState.update { 
+                    it.copy(
+                        userDisplayName = name,
+                        userSubtitle = sub,
+                        userAvatarUrl = avatar
+                    )
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            playbackState
+                .map { it.currentSong?.id }
+                .distinctUntilChanged()
+                .collect { songId ->
+                    if (songId != null) {
+                        musicRepository.recordSongPlayed(songId)
+                    }
+                }
+        }
+        
+        viewModelScope.launch {
+            musicRepository.getRecentSongs(50).collect { recentIds ->
+                val allSongs = _uiState.value.songs
+                if (allSongs.isNotEmpty()) {
+                    val recentSongs = recentIds.mapNotNull { id -> allSongs.find { it.id == id } }
+                    _uiState.update { it.copy(recentSongs = recentSongs) }
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            musicRepository.getTopSongs(50).collect { topSongs ->
+                _uiState.update { it.copy(topSongs = topSongs) }
+            }
+        }
     }
 
     fun loadLibrary() {
@@ -117,8 +170,10 @@ class LibraryViewModel @Inject constructor(
     }
 
     fun refreshLibrary() {
-        musicRepository.refreshLibrary()
-        loadLibrary()
+        viewModelScope.launch {
+            musicRepository.refreshLibrary()
+            loadLibrary()
+        }
     }
 
     fun search(query: String) {
@@ -137,4 +192,22 @@ class LibraryViewModel @Inject constructor(
     fun togglePlayPause() = playbackManager.togglePlayPause()
     fun skipToNext() = playbackManager.skipToNext()
     fun skipToPrevious() = playbackManager.skipToPrevious()
+    
+    fun updateUserProfile(displayName: String, subtitle: String, avatarUrl: String? = null) {
+        viewModelScope.launch {
+            userPreferencesManager.saveUserProfile(avatarUrl, displayName, subtitle)
+        }
+    }
+    
+    suspend fun getPlaylistWithSongs(playlistId: Long): com.muzic.player.data.model.Playlist? {
+        return playlistRepository.getPlaylistWithSongs(playlistId)
+    }
+
+    suspend fun addSongToPlaylist(playlistId: Long, songId: Long) {
+        playlistRepository.addSongToPlaylist(playlistId, songId)
+    }
+
+    suspend fun removeSongFromPlaylist(playlistId: Long, songId: Long) {
+        playlistRepository.removeSongFromPlaylist(playlistId, songId)
+    }
 }

@@ -45,15 +45,17 @@ fun SettingsScreen(
     var showComingSoonDialog by remember { mutableStateOf(false) }
     var comingSoonFeature by remember { mutableStateOf("") }
 
+    val adaptivePadding = getAdaptivePadding()
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
                         "Settings",
-                        color = TextPrimary,
+                        color = MaterialTheme.colorScheme.onBackground,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 28.sp
+                        fontSize = 24.sp
                     )
                 },
                 navigationIcon = {
@@ -61,16 +63,16 @@ fun SettingsScreen(
                         Icon(
                             imageVector = Icons.Rounded.ArrowBack,
                             contentDescription = "Back",
-                            tint = MuzicRed
+                            tint = MaterialTheme.colorScheme.primary
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = DarkBg
+                    containerColor = MaterialTheme.colorScheme.background
                 )
             )
         },
-        containerColor = DarkBg
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -85,7 +87,7 @@ fun SettingsScreen(
                 SettingsCard {
                     SettingsItem(
                         icon = Icons.Rounded.Refresh,
-                        iconTint = AccentBlue,
+                        iconTint = MaterialTheme.colorScheme.secondary,
                         title = "Rescan Library",
                         subtitle = if (uiState.isScanning) "Scanning for new music..." else if (uiState.scanMessage.isNotEmpty()) uiState.scanMessage else "Scan device for new music",
                         onClick = {
@@ -101,7 +103,7 @@ fun SettingsScreen(
                 SettingsCard {
                     SettingsItem(
                         icon = Icons.Rounded.Equalizer,
-                        iconTint = AccentPurple,
+                        iconTint = MaterialTheme.colorScheme.primary,
                         title = "Equalizer",
                         subtitle = "Adjust audio frequencies",
                         onClick = { openSystemEqualizer(context) }
@@ -109,7 +111,7 @@ fun SettingsScreen(
                     SettingsDivider()
                     SettingsItem(
                         icon = Icons.Rounded.GraphicEq,
-                        iconTint = AccentOrange,
+                        iconTint = MaterialTheme.colorScheme.primary,
                         title = "Bass Boost",
                         subtitle = "Enhance low frequencies",
                         onClick = {
@@ -120,7 +122,7 @@ fun SettingsScreen(
                     SettingsDivider()
                     SettingsItem(
                         icon = Icons.Rounded.SurroundSound,
-                        iconTint = AccentGreen,
+                        iconTint = MaterialTheme.colorScheme.tertiary,
                         title = "Virtualizer",
                         subtitle = "3D surround sound effect",
                         onClick = {
@@ -136,7 +138,7 @@ fun SettingsScreen(
                 SettingsCard {
                     SettingsItem(
                         icon = Icons.Rounded.DarkMode,
-                        iconTint = AccentBlue,
+                        iconTint = MaterialTheme.colorScheme.secondary,
                         title = "Theme",
                         subtitle = "Dark Mode",
                         onClick = { showThemeDialog = true }
@@ -149,7 +151,7 @@ fun SettingsScreen(
                 SettingsCard {
                     SettingsItem(
                         icon = Icons.Rounded.Info,
-                        iconTint = MuzicRed,
+                        iconTint = MaterialTheme.colorScheme.primary,
                         title = "About Muzic",
                         subtitle = "Version 2.1.0 • No Ads • Pure Music",
                         onClick = { showAboutDialog = true }
@@ -157,15 +159,27 @@ fun SettingsScreen(
                     SettingsDivider()
                     SettingsItem(
                         icon = Icons.Rounded.Security,
-                        iconTint = AccentGreen,
+                        iconTint = MaterialTheme.colorScheme.tertiary,
                         title = "Privacy Policy",
                         subtitle = "Your data is safe with us",
                         onClick = { showPrivacyDialog = true }
                     )
+                    SettingsDivider()
+                    SettingsItem(
+                        icon = Icons.Rounded.SettingsApplications,
+                        iconTint = MaterialTheme.colorScheme.secondary,
+                        title = "App Info",
+                        subtitle = "System app settings",
+                        onClick = { 
+                            val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                            intent.data = android.net.Uri.parse("package:${context.packageName}")
+                            context.startActivity(intent)
+                        }
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(144.dp))
         }
     }
 
@@ -173,7 +187,7 @@ fun SettingsScreen(
     if (showAboutDialog) {
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
-            containerColor = DarkSurface,
+            containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(20.dp),
             title = null,
             text = {
@@ -188,7 +202,10 @@ fun SettingsScreen(
                             .clip(RoundedCornerShape(20.dp))
                             .background(
                                 Brush.linearGradient(
-                                    colors = listOf(MuzicGradientStart, MuzicGradientEnd)
+                                    colors = listOf(
+                                        MaterialTheme.colorScheme.primary,
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    )
                                 )
                             ),
                         contentAlignment = Alignment.Center
@@ -196,7 +213,7 @@ fun SettingsScreen(
                         Icon(
                             imageVector = Icons.Rounded.MusicNote,
                             contentDescription = null,
-                            tint = TextPrimary,
+                            tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(40.dp)
                         )
                     }
@@ -207,13 +224,13 @@ fun SettingsScreen(
                         text = "Muzic",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
 
                     Text(
                         text = "Version 2.1.0",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -222,9 +239,9 @@ fun SettingsScreen(
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        FeatureBadge("No Ads", MuzicRed)
-                        FeatureBadge("Offline", AccentBlue)
-                        FeatureBadge("Pure Music", AccentGreen)
+                        FeatureBadge("No Ads", MaterialTheme.colorScheme.primary)
+                        FeatureBadge("Offline", MaterialTheme.colorScheme.secondary)
+                        FeatureBadge("Pure Music", MaterialTheme.colorScheme.tertiary)
                     }
 
                     Spacer(modifier = Modifier.height(20.dp))
@@ -232,32 +249,32 @@ fun SettingsScreen(
                     Text(
                         text = "A premium offline music player crafted for audiophiles who value clean design and pure sound quality.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                         textAlign = TextAlign.Center
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    HorizontalDivider(color = DividerColor)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
                         text = "Developed by",
                         style = MaterialTheme.typography.labelSmall,
-                        color = TextTertiary
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                     )
                     Text(
                         text = "officialtechrom",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MuzicRed
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             },
             confirmButton = {
                 TextButton(onClick = { showAboutDialog = false }) {
-                    Text("Close", color = MuzicRed, fontWeight = FontWeight.Bold)
+                    Text("Close", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -267,20 +284,20 @@ fun SettingsScreen(
     if (showPrivacyDialog) {
         AlertDialog(
             onDismissRequest = { showPrivacyDialog = false },
-            containerColor = DarkSurface,
+            containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(20.dp),
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Rounded.Shield,
                         contentDescription = null,
-                        tint = AccentGreen,
+                        tint = MaterialTheme.colorScheme.secondary,
                         modifier = Modifier.size(28.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         "Your Privacy is Safe",
-                        color = TextPrimary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -296,7 +313,7 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showPrivacyDialog = false }) {
-                    Text("Got it!", color = AccentGreen, fontWeight = FontWeight.Bold)
+                    Text("Got it!", color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -306,10 +323,10 @@ fun SettingsScreen(
     if (showThemeDialog) {
         AlertDialog(
             onDismissRequest = { showThemeDialog = false },
-            containerColor = DarkSurface,
+            containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(20.dp),
             title = {
-                Text("Theme", color = TextPrimary, fontWeight = FontWeight.Bold)
+                Text("Theme", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
             },
             text = {
                 Column {
@@ -322,7 +339,7 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showThemeDialog = false }) {
-                    Text("Done", color = MuzicRed, fontWeight = FontWeight.Bold)
+                    Text("Done", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -332,38 +349,38 @@ fun SettingsScreen(
     if (showComingSoonDialog) {
         AlertDialog(
             onDismissRequest = { showComingSoonDialog = false },
-            containerColor = DarkSurface,
+            containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(20.dp),
             title = {
-                Text(comingSoonFeature, color = TextPrimary, fontWeight = FontWeight.Bold)
+                Text(comingSoonFeature, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
             },
             text = {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                     Icon(
                         imageVector = Icons.Rounded.Rocket,
                         contentDescription = null,
-                        tint = AccentOrange,
+                        tint = MaterialTheme.colorScheme.tertiary,
                         modifier = Modifier.size(48.dp)
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = "$comingSoonFeature will be available in the next update!",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                         textAlign = TextAlign.Center
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "Stay tuned for V2 🎵",
                         style = MaterialTheme.typography.bodySmall,
-                        color = AccentOrange,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )
                 }
             },
             confirmButton = {
                 TextButton(onClick = { showComingSoonDialog = false }) {
-                    Text("OK", color = MuzicRed, fontWeight = FontWeight.Bold)
+                    Text("OK", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -390,25 +407,27 @@ private fun openSystemEqualizer(context: Context) {
 
 @Composable
 private fun SettingsSection(title: String, content: @Composable () -> Unit) {
+    val adaptivePadding = getAdaptivePadding()
     Text(
         text = title.uppercase(),
         style = MaterialTheme.typography.labelSmall,
-        color = TextSecondary,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
         letterSpacing = 1.5.sp,
         fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(start = 32.dp, top = 20.dp, bottom = 8.dp)
+        modifier = Modifier.padding(start = adaptivePadding + 16.dp, top = 20.dp, bottom = 8.dp)
     )
     content()
 }
 
 @Composable
 private fun SettingsCard(content: @Composable () -> Unit) {
+    val adaptivePadding = getAdaptivePadding()
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(14.dp),
-        color = DarkSurface
+            .padding(horizontal = adaptivePadding),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Column {
             content()
@@ -420,7 +439,7 @@ private fun SettingsCard(content: @Composable () -> Unit) {
 private fun SettingsDivider() {
     HorizontalDivider(
         modifier = Modifier.padding(start = 56.dp),
-        color = DividerColor,
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
         thickness = 0.5.dp
     )
 }
@@ -459,20 +478,20 @@ private fun SettingsItem(
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
-                color = TextPrimary,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Medium
             )
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 fontSize = 12.sp
             )
         }
         Icon(
             imageVector = Icons.Rounded.ChevronRight,
             contentDescription = null,
-            tint = TextTertiary,
+            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
             modifier = Modifier.size(18.dp)
         )
     }
@@ -503,13 +522,13 @@ private fun PrivacyItem(emoji: String, title: String, description: String) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyMedium,
-                color = TextPrimary,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.SemiBold
             )
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )
         }
     }
@@ -520,21 +539,21 @@ private fun ThemeOption(title: String, subtitle: String, isSelected: Boolean) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        color = if (isSelected) MuzicRed.copy(alpha = 0.12f) else DarkSurfaceElevated
+        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(title, color = TextPrimary, fontWeight = FontWeight.Medium)
-                Text(subtitle, color = TextSecondary, style = MaterialTheme.typography.bodySmall)
+                Text(title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
+                Text(subtitle, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), style = MaterialTheme.typography.bodySmall)
             }
             if (isSelected) {
                 Icon(
                     imageVector = Icons.Rounded.CheckCircle,
                     contentDescription = null,
-                    tint = MuzicRed,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(24.dp)
                 )
             }

@@ -13,6 +13,7 @@ lifecycle = "2.7.0"
 activity-compose = "1.8.2"
 core-splashscreen = "1.0.1"
 datastore = "1.0.0"
+haze = "0.6.2"
 
 [libraries]
 # AndroidX Core
@@ -34,6 +35,7 @@ compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 compose-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 compose-animation = { group = "androidx.compose.animation", name = "animation" }
 compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
+compose-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout-compose", version = "1.0.1" }
 
 # Navigation
 navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
@@ -55,6 +57,12 @@ hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-com
 
 # Coil
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+
+# Haze
+haze = { group = "dev.chrisbanes.haze", name = "haze", version.ref = "haze" }
+
+# Palette
+androidx-palette = { group = "androidx.palette", name = "palette-ktx", version = "1.0.0" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
