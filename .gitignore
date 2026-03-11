@@ -57,3 +57,10 @@ Thumbs.db
 
 # Schemas (Room)
 # app/schemas/
+
+# Scratch files and temporary outputs
+*.log
+*.html
+*.mp4
+build_output*.txt
+.kotlin/
