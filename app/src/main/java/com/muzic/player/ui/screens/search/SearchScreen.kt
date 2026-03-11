@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import com.muzic.player.ui.components.animateListEntry
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -39,6 +41,17 @@ fun SearchScreen(
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val playbackState by viewModel.playbackState.collectAsStateWithLifecycle()
+
+    val suggestions = remember(uiState.topSongs, uiState.recentSongs, uiState.songs) {
+        val topIds = uiState.topSongs.map { it.songId }.toSet()
+        val topList = uiState.songs.filter { it.id in topIds }
+        val recList = uiState.recentSongs
+        val favList = uiState.songs.filter { it.isFavorite }
+        
+        (topList + recList + favList)
+            .distinctBy { it.id }
+            .take(10)
+    }
 
     val filteredSongs = remember(searchQuery, uiState.songs) {
         if (searchQuery.isBlank()) {
@@ -142,14 +155,45 @@ fun SearchScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(filteredSongs, key = { it.id }) { song ->
+                    itemsIndexed(filteredSongs, key = { _, it -> it.id }) { index, song ->
                         SongItem(
                             song = song,
                             isPlaying = playbackState.currentSong?.id == song.id,
-                            onSongClick = { viewModel.playSong(song) },
-                            onFavoriteClick = { viewModel.toggleFavorite(song.id) }
+                            onSongClick = { viewModel.playSong(song, filteredSongs) },
+                            onFavoriteClick = { viewModel.toggleFavorite(song.id) },
+                            modifier = Modifier.animateListEntry(index)
                         )
                     }
+                }
+            }
+        } else if (suggestions.isNotEmpty()) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = adaptivePadding,
+                    end = adaptivePadding,
+                    top = 16.dp,
+                    bottom = 144.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                item {
+                    Text(
+                        text = "Suggested for you",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
+                    )
+                }
+                itemsIndexed(suggestions, key = { _, it -> "app_sugg_${it.id}" }) { index, song ->
+                    SongItem(
+                        song = song,
+                        isPlaying = playbackState.currentSong?.id == song.id,
+                        onSongClick = { viewModel.playSong(song, suggestions) },
+                        onFavoriteClick = { viewModel.toggleFavorite(song.id) },
+                        modifier = Modifier.animateListEntry(index)
+                    )
                 }
             }
         } else {

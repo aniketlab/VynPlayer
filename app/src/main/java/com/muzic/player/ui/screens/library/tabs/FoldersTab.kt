@@ -25,9 +25,11 @@ fun FoldersTab(
     folders: List<Folder>,
     isLoading: Boolean,
     onFolderClick: (Folder) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()
 ) {
     Box(modifier = modifier.fillMaxSize()) {
+        com.muzic.player.ui.components.ObserveScrollState(listState)
         when {
             isLoading -> {
                 CircularProgressIndicator(
@@ -58,6 +60,7 @@ fun FoldersTab(
                 val adaptivePadding = getAdaptivePadding()
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
+                    state = listState,
                     contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
                     item {

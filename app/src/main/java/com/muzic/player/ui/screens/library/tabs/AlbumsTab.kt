@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import com.muzic.player.ui.components.animateListEntry
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material3.*
@@ -20,9 +22,11 @@ fun AlbumsTab(
     albums: List<Album>,
     isLoading: Boolean,
     onAlbumClick: (Album) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    gridState: androidx.compose.foundation.lazy.grid.LazyGridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
 ) {
     Box(modifier = modifier.fillMaxSize()) {
+        com.muzic.player.ui.components.ObserveScrollState(gridState)
         when {
             isLoading -> {
                 CircularProgressIndicator(
@@ -54,6 +58,7 @@ fun AlbumsTab(
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 160.dp),
                     modifier = Modifier.fillMaxSize(),
+                    state = gridState,
                     contentPadding = PaddingValues(
                         start = adaptivePadding,
                         top = 16.dp,
@@ -63,13 +68,15 @@ fun AlbumsTab(
                     horizontalArrangement = Arrangement.spacedBy(adaptivePadding),
                     verticalArrangement = Arrangement.spacedBy(adaptivePadding)
                 ) {
-                    items(
+                    itemsIndexed(
                         items = albums,
-                        key = { it.id }
-                    ) { album ->
+                        key = { _, it -> it.id }
+                    ) { index, album ->
                         AlbumCard(
                             album = album,
-                            onClick = { onAlbumClick(album) }
+                            onClick = { onAlbumClick(album) },
+                            isScrolling = gridState.isScrollInProgress,
+                            modifier = Modifier.animateListEntry(index, delay = 15)
                         )
                     }
                 }

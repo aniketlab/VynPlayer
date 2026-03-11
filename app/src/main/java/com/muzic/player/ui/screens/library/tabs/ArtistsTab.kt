@@ -7,6 +7,8 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import com.muzic.player.ui.components.animateListEntry
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -29,9 +31,11 @@ fun ArtistsTab(
     artists: List<Artist>,
     isLoading: Boolean,
     onArtistClick: (Artist) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    gridState: androidx.compose.foundation.lazy.grid.LazyGridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
 ) {
     Box(modifier = modifier.fillMaxSize()) {
+        com.muzic.player.ui.components.ObserveScrollState(gridState)
         when {
             isLoading -> {
                 CircularProgressIndicator(
@@ -63,6 +67,7 @@ fun ArtistsTab(
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 160.dp),
                     modifier = Modifier.fillMaxSize(),
+                    state = gridState,
                     contentPadding = PaddingValues(
                         start = adaptivePadding,
                         top = 16.dp,
@@ -72,13 +77,14 @@ fun ArtistsTab(
                     horizontalArrangement = Arrangement.spacedBy(adaptivePadding),
                     verticalArrangement = Arrangement.spacedBy(adaptivePadding)
                 ) {
-                    items(
+                    itemsIndexed(
                         items = artists,
-                        key = { it.id }
-                    ) { artist ->
+                        key = { _, it -> it.id }
+                    ) { index, artist ->
                         ArtistGridItem(
                             artist = artist,
-                            onClick = { onArtistClick(artist) }
+                            onClick = { onArtistClick(artist) },
+                            modifier = Modifier.animateListEntry(index, delay = 15)
                         )
                     }
                 }
@@ -90,10 +96,11 @@ fun ArtistsTab(
 @Composable
 fun ArtistGridItem(
     artist: Artist,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))

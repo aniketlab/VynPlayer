@@ -33,8 +33,12 @@ fun MuzicSeekBar(
     var isDragging by remember { mutableStateOf(false) }
     var dragPosition by remember { mutableFloatStateOf(0f) }
 
-    val progress = if (duration > 0) {
-        if (isDragging) dragPosition else currentPosition.toFloat() / duration.toFloat()
+    val progress = if (duration > 0L) {
+        if (isDragging) dragPosition 
+        else {
+            if (currentPosition >= duration) 1f
+            else (currentPosition.toFloat() / duration.toFloat()).coerceIn(0f, 0.999f)
+        }
     } else 0f
 
     val thumbScale by animateFloatAsState(
@@ -56,9 +60,9 @@ fun MuzicSeekBar(
                 isDragging = false
             },
             colors = SliderDefaults.colors(
-                thumbColor = Color.White,
-                activeTrackColor = Color.White,
-                inactiveTrackColor = Color.White.copy(0.3f)
+                thumbColor = accentColor,
+                activeTrackColor = accentColor,
+                inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(0.15f)
             ),
             thumb = {
                 // Centering thumb manually in a box that matches slider height (32.dp)
@@ -70,7 +74,7 @@ fun MuzicSeekBar(
                         modifier = Modifier
                             .size(12.dp)
                             .scale(thumbScale)
-                            .background(Color.White, CircleShape)
+                            .background(accentColor, CircleShape)
                     )
                 }
             },
@@ -86,13 +90,13 @@ fun MuzicSeekBar(
                             .fillMaxWidth()
                             .height(6.dp)
                             .clip(CircleShape)
-                            .background(Color.White.copy(0.3f))
+                            .background(MaterialTheme.colorScheme.onSurface.copy(0.15f))
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth(progress)
                                 .fillMaxHeight()
-                                .background(Color.White)
+                                .background(accentColor)
                         )
                     }
                 }
@@ -114,13 +118,13 @@ fun MuzicSeekBar(
                 text = TimeUtils.formatDuration(
                     if (isDragging) (dragPosition * duration).toLong() else currentPosition
                 ),
-                color = Color.White.copy(0.7f),
+                color = MaterialTheme.colorScheme.onSurface.copy(0.7f),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
                 text = TimeUtils.formatDuration(duration),
-                color = Color.White.copy(0.7f),
+                color = MaterialTheme.colorScheme.onSurface.copy(0.7f),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold
             )

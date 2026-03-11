@@ -53,7 +53,7 @@ fun SongDetailsDialog(
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Close", color = Color.White)
+                    Text("Close", color = MaterialTheme.colorScheme.onPrimary)
                 }
             }
         }

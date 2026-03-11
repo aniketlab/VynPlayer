@@ -1,7 +1,10 @@
 package com.muzic.player.ui.components
 
 import android.net.Uri
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -10,17 +13,22 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.muzic.player.ui.theme.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlin.math.absoluteValue
 
 @Composable
 fun MuzicImage(
@@ -31,10 +39,57 @@ fun MuzicImage(
     cornerRadius: Dp = 20.dp,
     iconSize: Dp = 24.dp,
     showGradient: Boolean = true,
-    elevation: Dp = 2.dp
+    elevation: Dp = 2.dp,
+    albumName: String? = null,
+    artistName: String? = null,
+    thumbnailMode: Boolean = true,
+    isScrolling: Boolean = false
 ) {
     var isError by remember { mutableStateOf(false) }
     val isEmpty = model == null || (model is Uri && model.toString().isEmpty()) || (model is String && model.isEmpty())
+    
+    val artworkRepository = LocalArtworkRepository.current
+    val cacheVersion by artworkRepository?.cacheVersion?.collectAsState() ?: remember { mutableStateOf(0L) }
+    
+    var internetModel by remember(albumName, artistName, cacheVersion) { mutableStateOf<Any?>(null) }
+
+    // Check disk cache only - NO network calls in UI
+    LaunchedEffect(isEmpty, isError, albumName, artistName, cacheVersion) {
+        if ((isEmpty || isError) && artworkRepository != null && !albumName.isNullOrBlank()) {
+            val newModel = withContext(Dispatchers.IO) {
+                artworkRepository.getCachedAlbumArtwork(albumName, artistName ?: "", thumbnailMode)
+            }
+            if (internetModel != newModel) {
+                internetModel = newModel
+            }
+        }
+    }
+
+    val showPlaceholder = (isEmpty || isError) && internetModel == null
+
+    val isDark = isSystemInDarkTheme()
+    val placeholderBrush = remember(fallbackText, isDark) {
+        val hash = fallbackText?.hashCode() ?: 0
+        val hue = (hash % 360).toFloat().absoluteValue
+        if (isDark) {
+            val c1 = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.62f, 0.20f)))
+            val c2 = Color(android.graphics.Color.HSVToColor(floatArrayOf((hue + 30f) % 360f, 0.50f, 0.30f)))
+            val c3 = Color(android.graphics.Color.HSVToColor(floatArrayOf((hue + 60f) % 360f, 0.40f, 0.40f)))
+            Brush.linearGradient(listOf(c1, c2, c3))
+        } else {
+            val c1 = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.04f, 0.98f)))
+            val c2 = Color(android.graphics.Color.HSVToColor(floatArrayOf((hue + 20f) % 360f, 0.08f, 0.95f)))
+            Brush.linearGradient(listOf(c1, c2))
+        }
+    }
+    
+    val fallbackTextColor = if (isDark) Color(0xFFFFFFFF) else Color(0xFF111111)
+    
+    val fallbackAlpha by animateFloatAsState(
+        targetValue = if (showPlaceholder) 1f else 0f,
+        animationSpec = tween(200),
+        label = "fallbackAlpha"
+    )
 
     Surface(
         modifier = modifier.clip(RoundedCornerShape(cornerRadius)),
@@ -47,87 +102,70 @@ fun MuzicImage(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            if (!isEmpty && !isError) {
+            val actualModel = if (!isEmpty && !isError) model
+                else if (internetModel != null) internetModel
+                else null
+
+            if (actualModel != null) {
                 val context = LocalContext.current
-                val request = remember(model) {
-                    coil.request.ImageRequest.Builder(context)
-                        .data(model)
-                        .crossfade(true)
-                        .build()
+                val request = remember(actualModel, thumbnailMode, isScrolling, albumName, artistName) {
+                    val builder = coil.request.ImageRequest.Builder(context)
+                        .data(actualModel)
+                        .size(if (thumbnailMode) 256 else 512)
+                        .crossfade(if (isScrolling) 0 else 200)
+                        .bitmapConfig(if (thumbnailMode) android.graphics.Bitmap.Config.RGB_565 else android.graphics.Bitmap.Config.ARGB_8888)
+                        .allowHardware(true)
+                        .diskCachePolicy(coil.request.CachePolicy.ENABLED)
+                        .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+                        
+                    if (!albumName.isNullOrBlank() && !albumName.equals("unknown", ignoreCase = true)) {
+                        builder.memoryCacheKey("${albumName}_${artistName}_${if (thumbnailMode) "thumb" else "full"}")
+                    }
+                    builder.build()
                 }
+                
                 AsyncImage(
                     model = request,
                     contentDescription = contentDescription,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxWidth(),
                     contentScale = ContentScale.Crop,
+                    alignment = Alignment.Center,
                     onState = { state ->
-                        isError = state is coil.compose.AsyncImagePainter.State.Error
+                        if (state is coil.compose.AsyncImagePainter.State.Error) {
+                            if (actualModel == model) {
+                                isError = true
+                            }
+                        }
                     }
                 )
             }
 
-            if (isEmpty || isError) {
+            if (fallbackAlpha > 0f) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(
-                            if (showGradient) {
-                                Brush.linearGradient(
-                                    colors = listOf(
-                                        MaterialTheme.colorScheme.surfaceVariant,
-                                        MaterialTheme.colorScheme.surface
-                                    )
-                                )
-                            } else {
-                                Brush.verticalGradient(
-                                    listOf(
-                                        MaterialTheme.colorScheme.surfaceVariant,
-                                        MaterialTheme.colorScheme.surface
-                                    )
-                                )
-                            }
-                        ),
+                        .alpha(fallbackAlpha)
+                        .background(placeholderBrush),
                     contentAlignment = Alignment.Center
                 ) {
-                    // Subtle music icon background overlay
-                    Icon(
-                        imageVector = Icons.Rounded.MusicNote,
-                        contentDescription = null,
-                        tint = Color.White.copy(0.05f),
-                        modifier = Modifier.fillMaxSize(0.7f)
-                    )
-
-                    val displayFallback = if (fallbackText.isNullOrBlank() || 
-                        fallbackText == "0" || 
+                    val displayFallback = if (fallbackText.isNullOrBlank() ||
+                        fallbackText == "0" ||
                         fallbackText.lowercase().contains("unknown")) null else fallbackText
 
                     if (displayFallback != null) {
-                        // Show Letter
                         Text(
                             text = displayFallback.take(1).uppercase(),
-                            style = MaterialTheme.typography.titleLarge,
-                            color = Color.White.copy(0.4f),
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = (cornerRadius.value * 1.5f).coerceAtLeast(16f).sp
-                        )
-                        
-                        // Small Music Icon Overlay in bottom right
-                        Icon(
-                            imageVector = Icons.Rounded.MusicNote,
-                            contentDescription = null,
-                            tint = Color.White.copy(0.3f),
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(8.dp)
-                                .size(iconSize * 0.7f)
+                            color = fallbackTextColor.copy(alpha = 0.85f),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = (cornerRadius.value * 3.5f).coerceIn(24f, 130f).sp,
+                            textAlign = TextAlign.Center
                         )
                     } else {
-                        // Just show Music Icon if no text
                         Icon(
                             imageVector = Icons.Rounded.MusicNote,
                             contentDescription = null,
-                            tint = Color.White.copy(0.2f),
-                            modifier = Modifier.size(iconSize)
+                            tint = fallbackTextColor.copy(alpha = 0.85f),
+                            modifier = Modifier.size(iconSize * 1.5f)
                         )
                     }
                 }

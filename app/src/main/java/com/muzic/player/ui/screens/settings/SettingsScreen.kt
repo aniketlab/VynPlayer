@@ -8,11 +8,12 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -44,8 +45,13 @@ fun SettingsScreen(
     var showThemeDialog by remember { mutableStateOf(false) }
     var showComingSoonDialog by remember { mutableStateOf(false) }
     var comingSoonFeature by remember { mutableStateOf("") }
+    var showArtworkDialog by remember { mutableStateOf(false) }
+    
+    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+    val artworkMode by viewModel.artworkDownloadMode.collectAsStateWithLifecycle()
 
     val adaptivePadding = getAdaptivePadding()
+    val listState = rememberLazyListState()
 
     Scaffold(
         topBar = {
@@ -61,7 +67,7 @@ fun SettingsScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
-                            imageVector = Icons.Rounded.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                             contentDescription = "Back",
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -74,112 +80,149 @@ fun SettingsScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
-        Column(
+        com.muzic.player.ui.components.ObserveScrollState(listState)
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
+                .padding(paddingValues),
+            state = listState
         ) {
-            Spacer(modifier = Modifier.height(8.dp))
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             // ─── LIBRARY ───
-            SettingsSection("Library") {
-                SettingsCard {
-                    SettingsItem(
-                        icon = Icons.Rounded.Refresh,
-                        iconTint = MaterialTheme.colorScheme.secondary,
-                        title = "Rescan Library",
-                        subtitle = if (uiState.isScanning) "Scanning for new music..." else if (uiState.scanMessage.isNotEmpty()) uiState.scanMessage else "Scan device for new music",
-                        onClick = {
-                            viewModel.rescanLibrary()
-                            Toast.makeText(context, "🔄 Scanning library...", Toast.LENGTH_SHORT).show()
-                        }
-                    )
+            item {
+                SettingsSection("Library") {
+                    SettingsCard {
+                        SettingsItem(
+                            icon = Icons.Rounded.Refresh,
+                            iconTint = MaterialTheme.colorScheme.secondary,
+                            title = "Rescan Library",
+                            subtitle = if (uiState.isScanning) "Scanning for new music..." else if (uiState.scanMessage.isNotEmpty()) uiState.scanMessage else "Scan device for new music",
+                            onClick = {
+                                viewModel.rescanLibrary()
+                                Toast.makeText(context, "🔄 Scanning library...", Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    }
+                }
+            }
+
+            // ─── ARTWORK ───
+            item {
+                SettingsSection("Artwork") {
+                    SettingsCard {
+                        SettingsItem(
+                            icon = Icons.Rounded.Image,
+                            iconTint = MaterialTheme.colorScheme.primary,
+                            title = "Download Artwork",
+                            subtitle = when (artworkMode) {
+                                0 -> "Off"
+                                1 -> "WiFi Only"
+                                2 -> "WiFi + Mobile Data"
+                                else -> "WiFi + Mobile Data"
+                            },
+                            onClick = { showArtworkDialog = true }
+                        )
+                    }
                 }
             }
 
             // ─── AUDIO ───
-            SettingsSection("Audio") {
-                SettingsCard {
-                    SettingsItem(
-                        icon = Icons.Rounded.Equalizer,
-                        iconTint = MaterialTheme.colorScheme.primary,
-                        title = "Equalizer",
-                        subtitle = "Adjust audio frequencies",
-                        onClick = { openSystemEqualizer(context) }
-                    )
-                    SettingsDivider()
-                    SettingsItem(
-                        icon = Icons.Rounded.GraphicEq,
-                        iconTint = MaterialTheme.colorScheme.primary,
-                        title = "Bass Boost",
-                        subtitle = "Enhance low frequencies",
-                        onClick = {
-                            comingSoonFeature = "Bass Boost"
-                            showComingSoonDialog = true
-                        }
-                    )
-                    SettingsDivider()
-                    SettingsItem(
-                        icon = Icons.Rounded.SurroundSound,
-                        iconTint = MaterialTheme.colorScheme.tertiary,
-                        title = "Virtualizer",
-                        subtitle = "3D surround sound effect",
-                        onClick = {
-                            comingSoonFeature = "Virtualizer"
-                            showComingSoonDialog = true
-                        }
-                    )
+            item {
+                SettingsSection("Audio") {
+                    SettingsCard {
+                        SettingsItem(
+                            icon = Icons.Rounded.Equalizer,
+                            iconTint = MaterialTheme.colorScheme.primary,
+                            title = "Equalizer",
+                            subtitle = "Adjust audio frequencies",
+                            onClick = { openSystemEqualizer(context) }
+                        )
+                        SettingsDivider()
+                        SettingsItem(
+                            icon = Icons.Rounded.GraphicEq,
+                            iconTint = MaterialTheme.colorScheme.primary,
+                            title = "Bass Boost",
+                            subtitle = "Enhance low frequencies",
+                            onClick = {
+                                comingSoonFeature = "Bass Boost"
+                                showComingSoonDialog = true
+                            }
+                        )
+                        SettingsDivider()
+                        SettingsItem(
+                            icon = Icons.Rounded.SurroundSound,
+                            iconTint = MaterialTheme.colorScheme.tertiary,
+                            title = "Virtualizer",
+                            subtitle = "3D surround sound effect",
+                            onClick = {
+                                comingSoonFeature = "Virtualizer"
+                                showComingSoonDialog = true
+                            }
+                        )
+                    }
                 }
             }
 
             // ─── APPEARANCE ───
-            SettingsSection("Appearance") {
-                SettingsCard {
-                    SettingsItem(
-                        icon = Icons.Rounded.DarkMode,
-                        iconTint = MaterialTheme.colorScheme.secondary,
-                        title = "Theme",
-                        subtitle = "Dark Mode",
-                        onClick = { showThemeDialog = true }
-                    )
+            item {
+                SettingsSection("Appearance") {
+                    SettingsCard {
+                        SettingsItem(
+                            icon = Icons.Rounded.DarkMode,
+                            iconTint = MaterialTheme.colorScheme.secondary,
+                            title = "Theme",
+                            subtitle = when (themeMode) {
+                                1 -> "Light Mode"
+                                2 -> "Dark Mode"
+                                else -> "System Default"
+                            },
+                            onClick = { showThemeDialog = true }
+                        )
+                    }
                 }
             }
 
             // ─── ABOUT ───
-            SettingsSection("About") {
-                SettingsCard {
-                    SettingsItem(
-                        icon = Icons.Rounded.Info,
-                        iconTint = MaterialTheme.colorScheme.primary,
-                        title = "About Muzic",
-                        subtitle = "Version 2.1.0 • No Ads • Pure Music",
-                        onClick = { showAboutDialog = true }
-                    )
-                    SettingsDivider()
-                    SettingsItem(
-                        icon = Icons.Rounded.Security,
-                        iconTint = MaterialTheme.colorScheme.tertiary,
-                        title = "Privacy Policy",
-                        subtitle = "Your data is safe with us",
-                        onClick = { showPrivacyDialog = true }
-                    )
-                    SettingsDivider()
-                    SettingsItem(
-                        icon = Icons.Rounded.SettingsApplications,
-                        iconTint = MaterialTheme.colorScheme.secondary,
-                        title = "App Info",
-                        subtitle = "System app settings",
-                        onClick = { 
-                            val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                            intent.data = android.net.Uri.parse("package:${context.packageName}")
-                            context.startActivity(intent)
-                        }
-                    )
+            item {
+                SettingsSection("About") {
+                    SettingsCard {
+                        SettingsItem(
+                            icon = Icons.Rounded.Info,
+                            iconTint = MaterialTheme.colorScheme.primary,
+                            title = "About Muzic",
+                            subtitle = "Version 2.1.0 • No Ads • Pure Music",
+                            onClick = { showAboutDialog = true }
+                        )
+                        SettingsDivider()
+                        SettingsItem(
+                            icon = Icons.Rounded.Security,
+                            iconTint = MaterialTheme.colorScheme.tertiary,
+                            title = "Privacy Policy",
+                            subtitle = "Your data is safe with us",
+                            onClick = { showPrivacyDialog = true }
+                        )
+                        SettingsDivider()
+                        SettingsItem(
+                            icon = Icons.Rounded.SettingsApplications,
+                            iconTint = MaterialTheme.colorScheme.secondary,
+                            title = "App Info",
+                            subtitle = "System app settings",
+                            onClick = { 
+                                val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                                intent.data = android.net.Uri.parse("package:${context.packageName}")
+                                context.startActivity(intent)
+                            }
+                        )
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(144.dp))
+            item {
+                Spacer(modifier = Modifier.height(144.dp))
+            }
         }
     }
 
@@ -319,27 +362,94 @@ fun SettingsScreen(
         )
     }
 
-    // ─── THEME DIALOG ───
     if (showThemeDialog) {
         AlertDialog(
             onDismissRequest = { showThemeDialog = false },
             containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(20.dp),
             title = {
-                Text("Theme", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                Text("Select Theme", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
             },
             text = {
                 Column {
-                    ThemeOption("Dark Mode", "AMOLED black", true)
+                    ThemeOption(
+                        title = "System Default", 
+                        subtitle = "Follows device theme", 
+                        isSelected = themeMode == 0,
+                        onClick = {
+                            viewModel.setThemeMode(0)
+                        }
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
-                    ThemeOption("Light Mode", "Coming soon", false)
+                    ThemeOption(
+                        title = "Light Mode", 
+                        subtitle = "A bright interface", 
+                        isSelected = themeMode == 1,
+                        onClick = {
+                            viewModel.setThemeMode(1)
+                        }
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
-                    ThemeOption("Dynamic Colors", "Coming soon", false)
+                    ThemeOption(
+                        title = "Dark Mode", 
+                        subtitle = "AMOLED optimized", 
+                        isSelected = themeMode == 2,
+                        onClick = {
+                            viewModel.setThemeMode(2)
+                        }
+                    )
                 }
             },
             confirmButton = {
                 TextButton(onClick = { showThemeDialog = false }) {
-                    Text("Done", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    Text("Close", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    // ─── ARTWORK DOWNLOAD DIALOG ───
+    if (showArtworkDialog) {
+        AlertDialog(
+            onDismissRequest = { showArtworkDialog = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(20.dp),
+            title = {
+                Text("Download Artwork", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Column {
+                    Text(
+                        "Automatically fetch album covers when local artwork is missing.",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    ThemeOption(
+                        title = "Off",
+                        subtitle = "Use local artwork only",
+                        isSelected = artworkMode == 0,
+                        onClick = { viewModel.setArtworkDownloadMode(0) }
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    ThemeOption(
+                        title = "WiFi Only",
+                        subtitle = "Download on WiFi connections",
+                        isSelected = artworkMode == 1,
+                        onClick = { viewModel.setArtworkDownloadMode(1) }
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    ThemeOption(
+                        title = "WiFi + Mobile Data",
+                        subtitle = "Download on any connection",
+                        isSelected = artworkMode == 2,
+                        onClick = { viewModel.setArtworkDownloadMode(2) }
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showArtworkDialog = false }) {
+                    Text("Close", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -535,9 +645,9 @@ private fun PrivacyItem(emoji: String, title: String, description: String) {
 }
 
 @Composable
-private fun ThemeOption(title: String, subtitle: String, isSelected: Boolean) {
+private fun ThemeOption(title: String, subtitle: String, isSelected: Boolean, onClick: () -> Unit = {}) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant
     ) {

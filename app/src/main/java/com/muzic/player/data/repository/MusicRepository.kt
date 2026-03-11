@@ -7,13 +7,10 @@ import com.muzic.player.data.model.Artist
 import com.muzic.player.data.model.Folder
 import com.muzic.player.data.model.Song
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.withContext
 import android.net.Uri
 import android.content.ContentUris
 import com.muzic.player.data.local.dao.SongDao
@@ -23,61 +20,133 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 import com.muzic.player.data.local.dao.PlaybackHistoryDao
+import com.muzic.player.data.local.dao.SongStatsDao
+import com.muzic.player.data.local.entity.SongStatsEntity
 import com.muzic.player.data.local.entity.PlaybackHistoryEntity
+import android.util.Log
+import java.util.concurrent.atomic.AtomicBoolean
 
 @Singleton
 class MusicRepository @Inject constructor(
     private val mediaStoreScanner: MediaStoreScanner,
     private val favoriteDao: FavoriteDao,
     private val playbackHistoryDao: PlaybackHistoryDao,
-    private val songDao: SongDao
+    private val songDao: SongDao,
+    private val songStatsDao: SongStatsDao,
+    private val albumArtworkDao: com.muzic.player.data.local.dao.AlbumArtworkDao,
+    private val musicHistoryRepository: MusicHistoryRepository,
+    private val artworkRepository: ArtworkRepository,
+    private val metadataCorrectionRepository: dagger.Lazy<MetadataCorrectionRepository>
 ) {
     // Cached data
     private var cachedSongs: List<Song>? = null
     private var cachedAlbums: List<Album>? = null
     private var cachedArtists: List<Artist>? = null
     private var cachedFolders: List<Folder>? = null
+    private var metadataFixStarted = false
+    private val isRefreshing = AtomicBoolean(false)
 
-    fun getAllSongs(): Flow<List<Song>> = flow {
-        // 1. Memory Cache
-        cachedSongs?.let {
-            val favoriteIds = favoriteDao.getAllFavoriteIds().first().toSet()
-            emit(it.map { s -> s.copy(isFavorite = s.id in favoriteIds) })
-            return@flow
+    val libraryUpdates = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    private val _allSongsFlow = songDao.getAllSongs()
+        .combine(favoriteDao.getAllFavoriteIds()) { dbSongs, favoriteIds ->
+            val favSet = favoriteIds.toSet()
+            val models = dbSongs.map { it.toModel().copy(isFavorite = it.id in favSet) }
+            cachedSongs = models
+            
+            // Trigger background sync ONLY ONCE at startup when data becomes available
+            if (!metadataFixStarted) {
+                metadataFixStarted = true
+                Log.d("LibraryScan", "Startup: Loading background scan & correction")
+                
+                // Trigger incremental sync in background (doesn't block UI)
+                MainScope().launch(Dispatchers.IO) {
+                    val lastModified = songDao.getMaxDateModified() ?: 0L
+                    refreshLibraryIncremental(models, lastModified)
+                    
+                    // After incremental scan, if we have metadata fix workers, start them
+                    if (models.isNotEmpty()) {
+                        metadataCorrectionRepository.get().startCorrection(models)
+                        artworkRepository.startPrefetch(models)
+                    }
+                }
+            }
+            models
         }
+        .flowOn(Dispatchers.IO)
+        .shareIn(
+            scope = MainScope(),
+            started = SharingStarted.WhileSubscribed(5000),
+            replay = 1
+        )
 
-        // 2. DB Cache
-        val dbSongs = songDao.getAllSongs().first()
-        if (dbSongs.isNotEmpty()) {
-            val songs = dbSongs.map { it.toModel() }
-            cachedSongs = songs
-            val favoriteIds = favoriteDao.getAllFavoriteIds().first().toSet()
-            emit(songs.map { s -> s.copy(isFavorite = s.id in favoriteIds) })
-            return@flow
+    fun getAllSongs(): Flow<List<Song>> = _allSongsFlow
+
+    private suspend fun refreshLibraryIncremental(existingSongs: List<Song>, lastModified: Long) {
+        try {
+            Log.d("LibraryScan", "Starting incremental scan (after $lastModified)...")
+            val startTime = System.currentTimeMillis()
+            val scannedSongs = mediaStoreScanner.scanAllSongs(lastModifiedAfter = lastModified)
+            
+            if (scannedSongs.isEmpty()) {
+                Log.d("LibraryScan", "No new or modified songs found.")
+                return
+            }
+            
+            Log.d("LibraryScan", "Found ${scannedSongs.size} potential updates, batch inserting...")
+            songDao.insertSongs(scannedSongs.map { it.toEntity() })
+            
+            val elapsed = System.currentTimeMillis() - startTime
+            Log.d("LibraryScan", "Incremental sync complete in ${elapsed}ms")
+
+            // Background metadata fix for only the new/modified songs
+            kotlinx.coroutines.MainScope().launch(Dispatchers.IO) {
+                try {
+                    val fixedSongs = mediaStoreScanner.fixSuspiciousMetadata(scannedSongs)
+                    if (fixedSongs.isNotEmpty()) {
+                        songDao.insertSongs(fixedSongs.map { it.toEntity() })
+                    }
+                } catch (e: Exception) {
+                    Log.e("LibraryScan", "Background metadata fix failed", e)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("LibraryScan", "Incremental scan failed", e)
         }
+    }
 
-        // 3. Scan
-        val scannedSongs = mediaStoreScanner.scanAllSongs()
-        songDao.insertSongs(scannedSongs.map { it.toEntity() })
-        cachedSongs = scannedSongs
-        val favoriteIds = favoriteDao.getAllFavoriteIds().first().toSet()
-        emit(scannedSongs.map { s -> s.copy(isFavorite = s.id in favoriteIds) })
+    fun getAllAlbums(): Flow<List<Album>> = getAllSongs().map { songs ->
+        val albums = songs.groupBy { it.albumId }.map { (id, albumSongs) ->
+            val first = albumSongs.first()
+            Album(
+                id = id,
+                name = first.album,
+                artist = first.artist,
+                songCount = albumSongs.size,
+                year = first.year
+            )
+        }.sortedBy { it.name }
+        cachedAlbums = albums
+        albums
     }.flowOn(Dispatchers.IO)
 
-    fun getAllAlbums(): Flow<List<Album>> = flow {
-        val albums = cachedAlbums ?: mediaStoreScanner.scanAlbums().also { cachedAlbums = it }
-        emit(albums)
+    fun getAllArtists(): Flow<List<Artist>> = getAllSongs().map { songs ->
+        val artists = songs.groupBy { it.artist }.map { (name, artistSongs) ->
+            Artist(
+                id = name.hashCode().toLong(),
+                name = name,
+                songCount = artistSongs.size,
+                albumCount = artistSongs.map { it.albumId }.distinct().size
+            )
+        }.sortedBy { it.name }
+        cachedArtists = artists
+        artists
     }.flowOn(Dispatchers.IO)
 
-    fun getAllArtists(): Flow<List<Artist>> = flow {
-        val artists = cachedArtists ?: mediaStoreScanner.scanArtists().also { cachedArtists = it }
-        emit(artists)
-    }.flowOn(Dispatchers.IO)
-
-    fun getAllFolders(): Flow<List<Folder>> = flow {
-        val songs = cachedSongs ?: mediaStoreScanner.scanAllSongs().also { cachedSongs = it }
-        val folders = cachedFolders ?: mediaStoreScanner.scanFolders(songs).also { cachedFolders = it }
-        emit(folders)
+    fun getAllFolders(): Flow<List<Folder>> = getAllSongs().map { songs ->
+        val folders = mediaStoreScanner.scanFolders(songs)
+        cachedFolders = folders
+        folders
     }.flowOn(Dispatchers.IO)
 
     suspend fun getSongsForAlbum(albumId: Long): List<Song> = withContext(Dispatchers.IO) {
@@ -113,11 +182,76 @@ class MusicRepository @Inject constructor(
     }
 
     suspend fun refreshLibrary() = withContext(Dispatchers.IO) {
-        cachedSongs = null
+        if (!isRefreshing.compareAndSet(false, true)) {
+            Log.d("LibraryScan", "Refresh already in progress, skipping")
+            return@withContext
+        }
+        try {
+            Log.d("LibraryScan", "Starting full library refresh...")
+            val startTime = System.currentTimeMillis()
+            
+            // Clear caches
+            cachedSongs = null
+            cachedAlbums = null
+            cachedArtists = null
+            cachedFolders = null
+            songDao.clearCache()
+            
+            // Fast scan and batch insert
+            val scannedSongs = mediaStoreScanner.scanAllSongs()
+            if (scannedSongs.isNotEmpty()) {
+                songDao.insertSongs(scannedSongs.map { it.toEntity() })
+            }
+            
+            val elapsed = System.currentTimeMillis() - startTime
+            Log.d("LibraryScan", "Full refresh: ${scannedSongs.size} songs in ${elapsed}ms")
+            
+            // Background workers
+            if (scannedSongs.isNotEmpty()) {
+                metadataCorrectionRepository.get().startCorrection(scannedSongs)
+                artworkRepository.startPrefetch(scannedSongs)
+                
+                // Deferred metadata fix
+                kotlinx.coroutines.MainScope().launch(Dispatchers.IO) {
+                    try {
+                        val fixedSongs = mediaStoreScanner.fixSuspiciousMetadata(scannedSongs)
+                        if (fixedSongs.isNotEmpty()) {
+                            songDao.insertSongs(fixedSongs.map { it.toEntity() })
+                        }
+                    } catch (e: Exception) {
+                        Log.e("LibraryScan", "Background metadata fix failed", e)
+                    }
+                }
+            }
+        } finally {
+            isRefreshing.set(false)
+        }
+    }
+
+    suspend fun updateSongMetadata(songId: Long, artist: String, album: String, artworkUrl: String? = null, artistImageUrl: String? = null) = withContext(Dispatchers.IO) {
+        songDao.updateSongMetadata(songId, artist, album, artworkUrl, artistImageUrl)
+        
+        // Save artwork to shared table if available
+        if (artworkUrl != null) {
+            val key = "${artist}_${album}".lowercase()
+            albumArtworkDao.insertArtwork(com.muzic.player.data.local.entity.AlbumArtworkEntity(
+                albumKey = key,
+                albumName = album,
+                artistName = artist,
+                artworkPath = artworkUrl
+            ))
+        }
+
+        // Update live memory cache and clear derived caches so they rebuild on next request
+        val fixedSongs = cachedSongs?.map {
+            if (it.id == songId) it.copy(artist = artist, album = album, artworkUrl = artworkUrl ?: it.artworkUrl, artistImageUrl = artistImageUrl ?: it.artistImageUrl) else it
+        } ?: return@withContext
+
+        cachedSongs = fixedSongs
         cachedAlbums = null
         cachedArtists = null
-        cachedFolders = null
-        songDao.clearCache()
+        
+        libraryUpdates.tryEmit(Unit)
     }
 
     private fun Song.toEntity() = SongEntity(
@@ -136,7 +270,9 @@ class MusicRepository @Inject constructor(
         dateModified = dateModified,
         mimeType = mimeType,
         folderName = folderName,
-        folderPath = folderPath
+        folderPath = folderPath,
+        artworkUrl = artworkUrl,
+        artistImageUrl = artistImageUrl
     )
 
     private fun SongEntity.toModel() = Song(
@@ -155,7 +291,9 @@ class MusicRepository @Inject constructor(
         dateModified = dateModified,
         mimeType = mimeType,
         folderName = folderName,
-        folderPath = folderPath
+        folderPath = folderPath,
+        artworkUrl = artworkUrl,
+        artistImageUrl = artistImageUrl
     )
 
     suspend fun searchSongs(query: String): List<Song> = withContext(Dispatchers.IO) {
@@ -169,11 +307,23 @@ class MusicRepository @Inject constructor(
     }
 
     // Playback History
-    suspend fun recordSongPlayed(songId: Long) {
-        playbackHistoryDao.insert(PlaybackHistoryEntity(songId = songId))
+    suspend fun recordSongPlayed(songId: Long, duration: Long = 0L) {
+        musicHistoryRepository.onSongStarted(songId)
     }
 
     fun getTopSongs(limit: Int): Flow<List<com.muzic.player.data.local.dao.SongPlayCount>> = playbackHistoryDao.getTopSongs(limit)
 
     fun getRecentSongs(limit: Int): Flow<List<Long>> = playbackHistoryDao.getRecentSongs(limit)
+
+    // ─── SMART STATS TRACKING ───
+    suspend fun updateSongStats(
+        songId: Long,
+        isCompleted: Boolean, 
+        wasSkipped: Boolean,
+        completionPercentage: Float
+    ) {
+        musicHistoryRepository.onSongFinished(songId, 0, 0, wasSkipped, completionPercentage)
+    }
+
+    suspend fun getAllSongStats() = songStatsDao.getAllStats()
 }

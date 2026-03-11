@@ -24,15 +24,28 @@ import coil.compose.AsyncImage
 import com.muzic.player.data.model.Song
 import com.muzic.player.ui.theme.*
 import com.muzic.player.util.TimeUtils
+import android.content.Intent
+import android.widget.Toast
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.platform.LocalContext
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.muzic.player.ui.MainViewModel
 
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun SongItem(
     song: Song,
     isPlaying: Boolean,
     onSongClick: () -> Unit,
     onFavoriteClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isScrolling: Boolean = false
 ) {
+    var showActionSheet by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val mainViewModel: MainViewModel = hiltViewModel()
+
     val bgColor by animateColorAsState(
         targetValue = if (isPlaying) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent,
         animationSpec = tween(300),
@@ -44,35 +57,41 @@ fun SongItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(bgColor)
-            .bounceClick(onClick = onSongClick)
+            .bounceCombinedClickable(
+                onClick = onSongClick,
+                onLongClick = { showActionSheet = true }
+            )
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Album Art
-        MuzicImage(
-            model = song.albumArtUri,
-            contentDescription = null,
-            modifier = Modifier.size(52.dp),
-            fallbackText = song.artist,
-            cornerRadius = 12.dp,
-            iconSize = 24.dp
-        )
+        Box(contentAlignment = Alignment.Center) {
+            // Album Art
+            SharedArtworkImage(
+                song = song,
+                contentDescription = null,
+                modifier = Modifier.size(52.dp),
+                cornerRadius = 12.dp,
+                iconSize = 24.dp,
+                isScrolling = isScrolling,
+                thumbnailMode = true
+            )
 
-        // Overlay Playing indicator if playing
-        if (isPlaying) {
-            Box(
-                modifier = Modifier
-                    .size(52.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color.Black.copy(alpha = 0.4f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Equalizer,
-                    contentDescription = "Playing",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
-                )
+            // Overlay Playing indicator if playing
+            if (isPlaying) {
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Equalizer,
+                        contentDescription = "Playing",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
         }
 
@@ -101,17 +120,141 @@ fun SongItem(
             )
         }
 
-        // Favorite
+        // Overflow menu
         IconButton(
-            onClick = onFavoriteClick,
+            onClick = { showActionSheet = true },
             modifier = Modifier.size(36.dp)
         ) {
             Icon(
-                imageVector = if (song.isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                contentDescription = null,
-                tint = if (song.isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                imageVector = Icons.Rounded.MoreVert,
+                contentDescription = "More Options",
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 modifier = Modifier.size(20.dp)
             )
         }
+    }
+
+    if (showActionSheet) {
+        SongActionSheet(
+            song = song,
+            onDismissRequest = { showActionSheet = false },
+            onFavoriteClick = onFavoriteClick
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SongActionSheet(
+    song: Song,
+    onDismissRequest: () -> Unit,
+    onFavoriteClick: () -> Unit
+) {
+    val context = LocalContext.current
+    val mainViewModel: MainViewModel = hiltViewModel()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    
+    ModalBottomSheet(
+        onDismissRequest = onDismissRequest,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 32.dp, top = 8.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SharedArtworkImage(
+                    song = song,
+                    contentDescription = null,
+                    modifier = Modifier.size(56.dp),
+                    cornerRadius = 12.dp,
+                    iconSize = 24.dp
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = com.muzic.player.util.MetadataUtils.cleanTitle(song.title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = com.muzic.player.util.MetadataUtils.cleanArtist(song.artist),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 24.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+            Spacer(modifier = Modifier.height(12.dp))
+
+            ActionSheetItem(icon = Icons.Rounded.QueueMusic, label = "Play next") {
+                mainViewModel.playNext(song)
+                Toast.makeText(context, "Added to queue", Toast.LENGTH_SHORT).show()
+                onDismissRequest()
+            }
+            ActionSheetItem(icon = Icons.Rounded.PlaylistAdd, label = "Add to playlist") {
+                Toast.makeText(context, "Playlist feature coming soon", Toast.LENGTH_SHORT).show()
+                onDismissRequest()
+            }
+            ActionSheetItem(icon = if (song.isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, label = if (song.isFavorite) "Remove from favorites" else "Add to favorites") {
+                onFavoriteClick()
+                onDismissRequest()
+            }
+            ActionSheetItem(icon = Icons.Rounded.Share, label = "Share") {
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, "Listen to ${song.title} by ${song.artist}")
+                }
+                context.startActivity(Intent.createChooser(intent, "Share song"))
+                onDismissRequest()
+            }
+            ActionSheetItem(icon = Icons.Rounded.Info, label = "Song details") {
+                Toast.makeText(context, "Location: ${song.uri}", Toast.LENGTH_LONG).show()
+                onDismissRequest()
+            }
+        }
+    }
+}
+
+@Composable
+fun ActionSheetItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .bounceClick(onClick = onClick)
+            .padding(horizontal = 24.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+            modifier = Modifier.size(26.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Medium
+        )
     }
 }

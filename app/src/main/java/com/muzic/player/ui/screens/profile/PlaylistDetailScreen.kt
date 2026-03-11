@@ -5,6 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import com.muzic.player.ui.components.animateListEntry
+import com.muzic.player.ui.components.SongItem
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -122,70 +125,14 @@ fun PlaylistDetailScreen(
             LazyColumn(
                 contentPadding = PaddingValues(bottom = 144.dp)
             ) {
-                items(playlistSongs, key = { it.id }) { song ->
-                    val isPlaying = playbackState.currentSong?.id == song.id
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { viewModel.playSong(song, playlistSongs) }
-                            .padding(horizontal = adaptivePadding, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        MuzicImage(
-                            model = song.albumArtUri,
-                            contentDescription = null,
-                            modifier = Modifier.size(52.dp),
-                            fallbackText = song.artist,
-                            cornerRadius = 12.dp,
-                            iconSize = 24.dp
-                        )
-
-                        if (isPlaying) {
-                            Box(
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .offset(x = (-52).dp) // Overlay on art
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color.Black.copy(alpha = 0.5f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Rounded.Equalizer, contentDescription = "Playing", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                            }
-                            Spacer(modifier = Modifier.width((-52).dp)) // Compensate offset
-                        }
-
-                        Spacer(modifier = Modifier.width(16.dp))
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = song.title,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                fontWeight = if (isPlaying) FontWeight.Bold else FontWeight.SemiBold,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                fontSize = 15.sp,
-                                lineHeight = 18.sp
-                            )
-                            Text(
-                                text = song.artist,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-
-                        IconButton(onClick = {
-                            scope.launch {
-                                viewModel.removeSongFromPlaylist(playlistId, song.id)
-                                val updated = viewModel.getPlaylistWithSongs(playlistId)
-                                playlistSongs = updated?.songs ?: emptyList()
-                            }
-                        }) {
-                            Icon(Icons.Rounded.RemoveCircleOutline, contentDescription = "Remove", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f), modifier = Modifier.size(20.dp))
-                        }
-                    }
+                itemsIndexed(playlistSongs, key = { _, it -> it.id }) { index, song ->
+                    SongItem(
+                        song = song,
+                        isPlaying = playbackState.currentSong?.id == song.id,
+                        onSongClick = { viewModel.playSong(song, playlistSongs) },
+                        onFavoriteClick = { viewModel.toggleFavorite(song.id) },
+                        modifier = Modifier.animateListEntry(index)
+                    )
                 }
             }
         }

@@ -6,6 +6,7 @@ import android.net.Uri
 import android.media.MediaMetadataRetriever
 import android.os.Build
 import android.provider.MediaStore
+import android.util.Log
 import com.muzic.player.data.model.Album
 import com.muzic.player.data.model.Artist
 import com.muzic.player.data.model.Folder
@@ -13,7 +14,9 @@ import com.muzic.player.data.model.Song
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.muzic.player.util.MetadataUtils
@@ -29,7 +32,11 @@ class MediaStoreScanner @Inject constructor(
         MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
     }
 
-    private val projection = arrayOf(
+    // ─── Scan guard: prevents concurrent scans ───
+    private val isScanning = AtomicBoolean(false)
+
+    // ─── Fast projection: only essential fields ───
+    private val fastProjection = arrayOf(
         MediaStore.Audio.Media._ID,
         MediaStore.Audio.Media.TITLE,
         MediaStore.Audio.Media.ARTIST,
@@ -42,136 +49,224 @@ class MediaStoreScanner @Inject constructor(
         MediaStore.Audio.Media.SIZE,
         MediaStore.Audio.Media.DATE_ADDED,
         MediaStore.Audio.Media.DATE_MODIFIED,
-        MediaStore.Audio.Media.MIME_TYPE
+        MediaStore.Audio.Media.MIME_TYPE,
+        MediaStore.Audio.Media.IS_MUSIC
     )
 
-    suspend fun scanAllSongs(): List<Song> = withContext(Dispatchers.IO) {
-        val songs = mutableListOf<Song>()
+    /**
+     * FAST SCAN: Queries MediaStore for essential fields only.
+     * No MediaMetadataRetriever calls — those are deferred to background.
+     * Returns results immediately for UI display.
+     */
+    suspend fun scanAllSongs(lastModifiedAfter: Long = 0L): List<Song> = withContext(Dispatchers.IO) {
+        if (!isScanning.compareAndSet(false, true)) {
+            Log.d("MediaStoreScanner", "Scan already in progress, skipping")
+            return@withContext emptyList()
+        }
 
-        val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} > 0"
-        val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
+        val startTime = System.currentTimeMillis()
+        Log.d("MediaStoreScanner", "Starting fast scan...")
 
-        context.contentResolver.query(
-            audioUri,
-            projection,
-            selection,
-            null,
-            sortOrder
-        )?.use { cursor ->
-            val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-            val titleColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
-            val artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-            val albumColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
-            val albumIdColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
-            val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
-            val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
-            val trackColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
-            val yearColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
-            val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
-            val dateAddedColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
-            val dateModifiedColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
-            val mimeTypeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
+        try {
+            val songs = ArrayList<Song>(500) // Pre-allocate for performance
+            val selection = if (lastModifiedAfter > 0) "${MediaStore.Audio.Media.DATE_MODIFIED} > $lastModifiedAfter" else null
+            val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
 
-            while (cursor.moveToNext()) {
-                val path = cursor.getString(dataColumn) ?: continue
-                
-                // ─── Filter logic for non-music folders ───
-                val upperPath = path.uppercase()
-                val isJunkFolder = upperPath.contains("WHATSAPP") || 
-                                 upperPath.contains("TELEGRAM") || 
-                                 upperPath.contains("VOICE NOTES") || 
-                                 upperPath.contains("CALLRECORDING") || 
-                                 upperPath.contains("ANDROID/MEDIA")
-                
-                if (isJunkFolder) continue
-                
-                // Only scan from specific allowed parent directories if path contains them
-                val isAllowedFolder = upperPath.contains("/MUSIC/") || 
-                                    upperPath.contains("/SONGS/") || 
-                                    upperPath.contains("/DOWNLOADS/") ||
-                                    upperPath.contains("/DOWNLOAD/")
-                
-                if (!isAllowedFolder) continue
+            context.contentResolver.query(
+                audioUri,
+                fastProjection,
+                selection,
+                null,
+                sortOrder
+            )?.use { cursor ->
+                val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+                val titleColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+                val artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+                val albumColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
+                val albumIdColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
+                val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+                val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+                val trackColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
+                val yearColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
+                val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
+                val dateAddedColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
+                val dateModifiedColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
+                val mimeTypeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
+                val isMusicColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.IS_MUSIC)
 
-                val id = cursor.getLong(idColumn)
-                val file = File(path)
-                val folderPath = file.parent ?: ""
-                val folderName = File(folderPath).name
+                Log.d("MediaStoreScanner", "Cursor has ${cursor.count} rows")
 
-                var rawTitle = cursor.getString(titleColumn)
-                var rawArtist = cursor.getString(artistColumn)
-                var rawAlbum = cursor.getString(albumColumn)
-                val albumId = cursor.getLong(albumIdColumn)
-                var duration = cursor.getLong(durationColumn)
+                while (cursor.moveToNext()) {
+                    val path = cursor.getString(dataColumn) ?: continue
 
-                // ─── Fallback to MediaMetadataRetriever if needed ───
-                if (isSuspicious(rawArtist) || isSuspicious(rawAlbum) || isSuspicious(rawTitle)) {
-                    val mmr = MediaMetadataRetriever()
-                    try {
-                        mmr.setDataSource(path)
-                        if (isSuspicious(rawTitle)) rawTitle = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
-                        if (isSuspicious(rawArtist)) rawArtist = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
-                        if (isSuspicious(rawAlbum)) rawAlbum = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
-                        if (duration <= 0) duration = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong() ?: 0L
-                    } catch (_: Exception) {
-                    } finally {
-                        mmr.release()
+                    // ─── Folder Blacklist ───
+                    val upperPath = path.uppercase()
+                    val isJunkFolder = upperPath.contains("WHATSAPP VOICE NOTES") ||
+                                     upperPath.contains("WHATSAPP AUDIO") ||
+                                     upperPath.contains("CALLRECORDINGS") ||
+                                     upperPath.contains("RECORDER") ||
+                                     upperPath.contains("TELEGRAM AUDIO") ||
+                                     upperPath.contains("ANDROID/MEDIA/COM.WHATSAPP")
+
+                    if (isJunkFolder) continue
+
+                    // ─── Confidence scoring (fast — no I/O) ───
+                    val duration = cursor.getLong(durationColumn)
+                    val size = cursor.getLong(sizeColumn)
+                    val isMusicFlag = cursor.getInt(isMusicColumn) != 0
+
+                    val isMusicFolder = upperPath.contains("/MUSIC/") ||
+                                        upperPath.contains("/SONGS/") ||
+                                        upperPath.contains("/DOWNLOADS/") ||
+                                        upperPath.contains("/DOWNLOAD/") ||
+                                        upperPath.contains("/ALBUMS/") ||
+                                        upperPath.contains("/ARTIST/")
+
+                    var confidenceScore = 0
+                    if (duration > 30000) confidenceScore++
+                    if (size > 1048576) confidenceScore++
+                    if (isMusicFolder) confidenceScore++
+                    if (isMusicFlag) confidenceScore++
+
+                    if (confidenceScore < 2) continue
+
+                    // ─── Extract and clean metadata (CPU-only, no file I/O) ───
+                    val id = cursor.getLong(idColumn)
+                    val file = File(path)
+                    val folderPath = file.parent ?: ""
+                    val folderName = File(folderPath).name
+
+                    var rawTitle = cursor.getString(titleColumn)
+                    var rawArtist = cursor.getString(artistColumn)
+                    var rawAlbum = cursor.getString(albumColumn)
+                    val albumId = cursor.getLong(albumIdColumn)
+
+                    // ─── Fast filename fallback (no disk I/O) ───
+                    if (isSuspicious(rawArtist) || isSuspicious(rawTitle)) {
+                        val (extractedTitle, extractedArtist) = MetadataUtils.extractFromFileName(file.name)
+                        if (isSuspicious(rawTitle) && extractedTitle != null) rawTitle = extractedTitle
+                        if (isSuspicious(rawArtist) && extractedArtist != null) rawArtist = extractedArtist
+                    }
+
+                    // Never copy TITLE into ARTIST
+                    if (rawArtist != null && rawTitle != null && rawArtist.equals(rawTitle, ignoreCase = true)) {
+                        rawArtist = null
+                    }
+
+                    // Fallback to Folder Name for Album if missing
+                    if (isSuspicious(rawAlbum)) {
+                        rawAlbum = folderName
+                    }
+
+                    // ─── Clean & sanitize ───
+                    val cleanTitle = MetadataUtils.cleanTitle(rawTitle ?: file.nameWithoutExtension)
+                    val cleanArtist = MetadataUtils.cleanArtist(rawArtist ?: "")
+                    val cleanAlbum = MetadataUtils.cleanTitle(rawAlbum ?: "")
+
+                    val finalTitle = MetadataUtils.sanitize(cleanTitle, MetadataType.TITLE)
+                    val finalArtist = MetadataUtils.sanitize(cleanArtist, MetadataType.ARTIST)
+                    val finalAlbum = MetadataUtils.sanitize(cleanAlbum, MetadataType.ALBUM)
+
+                    val contentUri = ContentUris.withAppendedId(audioUri, id)
+
+                    songs.add(
+                        Song(
+                            id = id,
+                            title = finalTitle,
+                            artist = finalArtist,
+                            album = finalAlbum,
+                            albumId = albumId,
+                            duration = duration,
+                            path = path,
+                            uri = contentUri,
+                            trackNumber = cursor.getInt(trackColumn),
+                            year = cursor.getInt(yearColumn),
+                            size = cursor.getLong(sizeColumn),
+                            dateAdded = cursor.getLong(dateAddedColumn),
+                            dateModified = cursor.getLong(dateModifiedColumn),
+                            mimeType = cursor.getString(mimeTypeColumn) ?: "",
+                            folderName = folderName,
+                            folderPath = folderPath
+                        )
+                    )
+                }
+            }
+
+            val elapsed = System.currentTimeMillis() - startTime
+            Log.d("MediaStoreScanner", "Fast scan complete: ${songs.size} songs in ${elapsed}ms")
+
+            songs
+        } finally {
+            isScanning.set(false)
+        }
+    }
+
+    /**
+     * BACKGROUND METADATA FIX: Runs MediaMetadataRetriever for songs
+     * with suspicious metadata. Called AFTER initial scan and UI display.
+     * Returns list of songs that were updated.
+     */
+    suspend fun fixSuspiciousMetadata(songs: List<Song>): List<Song> = withContext(Dispatchers.IO) {
+        val updatedSongs = mutableListOf<Song>()
+
+        for (song in songs) {
+            if (!isSuspicious(song.artist) && !isSuspicious(song.album) && !isSuspicious(song.title)) {
+                continue
+            }
+
+            yield() // Allow cancellation between songs
+
+            val mmr = MediaMetadataRetriever()
+            try {
+                mmr.setDataSource(song.path)
+
+                var newTitle = song.title
+                var newArtist = song.artist
+                var newAlbum = song.album
+                var newDuration = song.duration
+                var changed = false
+
+                if (isSuspicious(song.title)) {
+                    val mmrTitle = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
+                    if (mmrTitle != null && !isSuspicious(mmrTitle)) {
+                        newTitle = MetadataUtils.sanitize(MetadataUtils.cleanTitle(mmrTitle), MetadataType.TITLE)
+                        changed = true
+                    }
+                }
+                if (isSuspicious(song.artist)) {
+                    val mmrArtist = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
+                    if (mmrArtist != null && !isSuspicious(mmrArtist)) {
+                        newArtist = MetadataUtils.sanitize(MetadataUtils.cleanArtist(mmrArtist), MetadataType.ARTIST)
+                        changed = true
+                    }
+                }
+                if (isSuspicious(song.album)) {
+                    val mmrAlbum = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM)
+                    if (mmrAlbum != null && !isSuspicious(mmrAlbum)) {
+                        newAlbum = MetadataUtils.sanitize(MetadataUtils.cleanTitle(mmrAlbum), MetadataType.ALBUM)
+                        changed = true
+                    }
+                }
+                if (song.duration <= 0) {
+                    val mmrDuration = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
+                    if (mmrDuration != null && mmrDuration > 0) {
+                        newDuration = mmrDuration
+                        changed = true
                     }
                 }
 
-                // ─── Fallback to FileName if artist is still missing ───
-                if (isSuspicious(rawArtist) || isSuspicious(rawTitle)) {
-                    val (extractedTitle, extractedArtist) = MetadataUtils.extractFromFileName(file.name)
-                    if (isSuspicious(rawTitle) && extractedTitle != null) rawTitle = extractedTitle
-                    if (isSuspicious(rawArtist) && extractedArtist != null) rawArtist = extractedArtist
+                if (changed) {
+                    updatedSongs.add(song.copy(title = newTitle, artist = newArtist, album = newAlbum, duration = newDuration))
                 }
-
-                // ─── Double check: Never copy TITLE into ARTIST ───
-                if (rawArtist != null && rawTitle != null && rawArtist.equals(rawTitle, ignoreCase = true)) {
-                    rawArtist = null
-                }
-
-                // ─── Fallback to Folder Name for Album if missing ───
-                if (isSuspicious(rawAlbum)) {
-                    rawAlbum = folderName
-                }
-
-                // ─── Clean junk patterns & format ───
-                val cleanTitle = MetadataUtils.cleanTitle(rawTitle ?: file.nameWithoutExtension)
-                val cleanArtist = MetadataUtils.cleanArtist(rawArtist ?: "")
-                val cleanAlbum = MetadataUtils.cleanTitle(rawAlbum ?: "")
-
-                // ─── Final Sanitization & Junk Filtering ───
-                val finalTitle = MetadataUtils.sanitize(cleanTitle, MetadataType.TITLE)
-                val finalArtist = MetadataUtils.sanitize(cleanArtist, MetadataType.ARTIST)
-                val finalAlbum = MetadataUtils.sanitize(cleanAlbum, MetadataType.ALBUM)
-
-                val contentUri = ContentUris.withAppendedId(audioUri, id)
-
-                songs.add(
-                    Song(
-                        id = id,
-                        title = finalTitle,
-                        artist = finalArtist,
-                        album = finalAlbum,
-                        albumId = albumId,
-                        duration = duration,
-                        path = path,
-                        uri = contentUri,
-                        trackNumber = cursor.getInt(trackColumn),
-                        year = cursor.getInt(yearColumn),
-                        size = cursor.getLong(sizeColumn),
-                        dateAdded = cursor.getLong(dateAddedColumn),
-                        dateModified = cursor.getLong(dateModifiedColumn),
-                        mimeType = cursor.getString(mimeTypeColumn) ?: "",
-                        folderName = folderName,
-                        folderPath = folderPath
-                    )
-                )
+            } catch (_: Exception) {
+                // Skip songs that can't be read
+            } finally {
+                mmr.release()
             }
         }
 
-        songs
+        Log.d("MediaStoreScanner", "Background metadata fix: ${updatedSongs.size} songs updated")
+        updatedSongs
     }
 
     suspend fun scanAlbums(): List<Album> = withContext(Dispatchers.IO) {

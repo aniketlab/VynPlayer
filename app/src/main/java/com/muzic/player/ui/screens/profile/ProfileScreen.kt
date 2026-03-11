@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -28,10 +29,21 @@ fun ProfileScreen(
     onNavigateToFavorites: () -> Unit = {},
     onNavigateToRecentlyPlayed: () -> Unit = {},
     onNavigateToPlaylists: () -> Unit = {},
-    viewModel: LibraryViewModel = hiltViewModel()
+    viewModel: LibraryViewModel = hiltViewModel(),
+    appViewModel: com.muzic.player.ui.MainViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showEditDialog by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+
+    // ─── TAP TO TOP LISTENER ───
+    LaunchedEffect(Unit) {
+        appViewModel.scrollToTopRequest.collect { route ->
+            if (route == com.muzic.player.ui.navigation.Screen.Profile.route) {
+                listState.animateScrollToItem(0)
+            }
+        }
+    }
 
     val totalSongs = uiState.songs.size
     val totalAlbums = uiState.albums.size
@@ -80,11 +92,14 @@ fun ProfileScreen(
     val adaptivePadding = getAdaptivePadding()
     val context = LocalContext.current
 
+    com.muzic.player.ui.components.ObserveScrollState(listState)
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding(),
+        state = listState,
         contentPadding = PaddingValues(bottom = 144.dp)
     ) {
 

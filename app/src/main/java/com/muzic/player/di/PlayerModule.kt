@@ -15,7 +15,12 @@ object PlayerModule {
 
     @Provides
     @Singleton
-    fun providePlaybackManager(@ApplicationContext context: Context): PlaybackManager {
-        return PlaybackManager(context)
+    fun providePlaybackManager(
+        @ApplicationContext context: Context,
+        musicRepository: com.muzic.player.data.repository.MusicRepository,
+        musicHistoryRepository: com.muzic.player.data.repository.MusicHistoryRepository,
+        userPrefs: com.muzic.player.data.preferences.UserPreferencesManager
+    ): PlaybackManager {
+        return PlaybackManager(context, musicRepository, musicHistoryRepository, userPrefs)
     }
 }

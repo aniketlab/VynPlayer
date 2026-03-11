@@ -26,9 +26,11 @@ fun PlaylistsTab(
     onPlaylistClick: (Playlist) -> Unit,
     onCreatePlaylistClick: () -> Unit,
     onDeletePlaylistClick: (Long) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()
 ) {
     Box(modifier = modifier.fillMaxSize()) {
+        com.muzic.player.ui.components.ObserveScrollState(listState)
         when {
             isLoading -> {
                 CircularProgressIndicator(
@@ -40,6 +42,7 @@ fun PlaylistsTab(
                 val adaptivePadding = getAdaptivePadding()
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
+                    state = listState,
                     contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
                     // Create playlist button

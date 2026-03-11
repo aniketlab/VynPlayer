@@ -19,7 +19,9 @@ data class Song(
     val mimeType: String = "",
     val folderName: String = "",
     val folderPath: String = "",
-    val isFavorite: Boolean = false
+    val isFavorite: Boolean = false,
+    val artworkUrl: String? = null,
+    val artistImageUrl: String? = null
 ) {
     val albumArtUri: Uri
         get() = Uri.parse("content://media/external/audio/albumart/$albumId")

@@ -1,10 +1,16 @@
 package com.muzic.player.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -13,6 +19,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,11 +42,19 @@ import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.ui.graphics.toArgb
 import com.muzic.player.ui.components.MiniPlayer
 import com.muzic.player.ui.navigation.BottomNavScreens
 import com.muzic.player.ui.navigation.MuzicNavGraph
 import com.muzic.player.ui.navigation.Screen
+import com.muzic.player.ui.screens.nowplaying.NowPlayingContent
 import com.muzic.player.ui.theme.*
+import android.app.Activity
+import androidx.activity.compose.BackHandler
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 
 @Composable
 fun MuzicAppContent(
@@ -49,13 +64,31 @@ fun MuzicAppContent(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
-    val hiddenRoutes = setOf(Screen.Splash.route, Screen.NowPlaying.route)
+    val hiddenRoutes = setOf(Screen.Splash.route)
     val showBottomNav = currentDestination?.route != null && currentDestination.route !in hiddenRoutes
+    val playbackProgress by viewModel.playbackProgress.collectAsStateWithLifecycle()
     val playbackState by viewModel.playbackState.collectAsStateWithLifecycle()
     val hazeState = remember { HazeState() }
+    val context = LocalContext.current
+    val activity = context as? Activity
+
+    val isPlayerExpanded by viewModel.isPlayerExpanded.collectAsStateWithLifecycle()
+    val expansionProgress by animateFloatAsState(
+        targetValue = if (isPlayerExpanded) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = 220,
+            easing = FastOutSlowInEasing
+        ),
+        label = "ExpansionProgress"
+    )
+
+    val isMiniPlayerVisible by remember {
+        derivedStateOf { playbackProgress.currentTrack != null }
+    }
+
 
     Scaffold(
-        containerColor = Color.Transparent
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         // Outer box spans the entire screen (edge to edge)
         Box(modifier = Modifier.fillMaxSize()) {
@@ -69,6 +102,25 @@ fun MuzicAppContent(
                     .haze(state = hazeState)
             ) {
                 MuzicNavGraph(navController = navController)
+                
+                // ─── BOTTOM TABS BACK NAVIGATION ───
+                // Composed AFTER NavGraph so it intercepts back presses for main tabs
+                val currentRoute = currentDestination?.route
+                val isBottomNavTab = BottomNavScreens.any { it.route == currentRoute }
+                
+                BackHandler(enabled = !isPlayerExpanded && isBottomNavTab) {
+                    if (currentRoute == Screen.Home.route) {
+                        activity?.moveTaskToBack(true)
+                    } else {
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(navController.graph.startDestinationId) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                }
             }
 
             // Floating bottom section (Anchored to absolute screen bottom)
@@ -84,36 +136,51 @@ fun MuzicAppContent(
                         .padding(bottom = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // ─── MINI PLAYER ───
+                    // ─── MINI PLAYER (Persistent) ───
                     AnimatedVisibility(
-                        visible = playbackState.currentSong != null,
-                        enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(400)) + fadeIn(animationSpec = tween(400)),
-                        exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(400)) + fadeOut(animationSpec = tween(400))
+                        visible = isMiniPlayerVisible,
+                        enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(200, easing = FastOutSlowInEasing)) + fadeIn(animationSpec = tween(200)),
+                        exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(200, easing = FastOutLinearInEasing)) + fadeOut(animationSpec = tween(200))
                     ) {
                         MiniPlayer(
-                            currentSong = playbackState.currentSong,
-                            isPlaying = playbackState.isPlaying,
-                            progress = if (playbackState.duration > 0)
-                                playbackState.currentPosition.toFloat() / playbackState.duration.toFloat()
-                            else 0f,
-                            onPlayerClick = { navController.navigate(Screen.NowPlaying.route) },
+                            currentSong = playbackProgress.currentTrack,
+                            isPlaying = playbackProgress.isPlaying,
+                            progress = if (playbackProgress.duration > 0L) {
+                                (playbackProgress.currentPosition.toLong().toFloat() / playbackProgress.duration.toLong().toFloat()).coerceIn(0f, 1f)
+                            } else 0f,
+                            onPlayerClick = { 
+                                if (playbackProgress.currentTrack != null) {
+                                    viewModel.setPlayerExpanded(true)
+                                }
+                            },
                             onPlayPauseClick = { viewModel.togglePlayPause() },
                             onNextClick = { viewModel.skipToNext() },
-                            onDismiss = { viewModel.stopPlayback() },
+                            onPreviousClick = { viewModel.skipToPrevious() },
                             modifier = Modifier
                                 .padding(horizontal = 16.dp, vertical = 4.dp)
+                                .graphicsLayer {
+                                    alpha = 1f - expansionProgress
+                                    translationY = 50f * expansionProgress
+                                }
                                 .zIndex(3f),
                             hazeState = hazeState
                         )
                     }
 
                     // ─── FLOATING DOCK ───
+                    val isDarkTheme = androidx.compose.foundation.isSystemInDarkTheme()
                     Box(
                         modifier = Modifier
                             .padding(horizontal = 16.dp)
                             .fillMaxWidth()
                             .height(64.dp)
                             .zIndex(2f)
+                            .graphicsLayer {
+                                shadowElevation = if (isDarkTheme) 12f else 6f
+                                spotShadowColor = if (isDarkTheme) Color.Black.copy(alpha = 0.25f) else Color.Black.copy(alpha = 0.1f)
+                                ambientShadowColor = if (isDarkTheme) Color.Black.copy(alpha = 0.1f) else Color.Black.copy(alpha = 0.05f)
+                                shape = RoundedCornerShape(26.dp)
+                            }
                             .clip(RoundedCornerShape(26.dp))
                             .hazeChild(state = hazeState, shape = RoundedCornerShape(26.dp), style = HazeStyle(blurRadius = 22.dp))
                             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), RoundedCornerShape(26.dp))
@@ -143,12 +210,18 @@ fun MuzicAppContent(
                                             indication = null,
                                             interactionSource = remember { MutableInteractionSource() }
                                         ) {
-                                            navController.navigate(screen.route) {
-                                                popUpTo(navController.graph.findStartDestination().id) {
-                                                    saveState = true
+                                            if (selected) {
+                                                // ─── TAP SAME TAB: Scroll to Top ───
+                                                viewModel.requestScrollToTop(screen.route)
+                                            } else {
+                                                // ─── NAVIGATE TO DIFFERENT TAB ───
+                                                navController.navigate(screen.route) {
+                                                    popUpTo(navController.graph.startDestinationId) {
+                                                        saveState = true
+                                                    }
+                                                    launchSingleTop = true
+                                                    restoreState = true
                                                 }
-                                                launchSingleTop = true
-                                                restoreState = true
                                             }
                                         },
                                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -174,6 +247,43 @@ fun MuzicAppContent(
                             }
                         }
                     }
+                }
+            }
+
+            // ─── FULL PLAYER OVERLAY ───
+            if (expansionProgress > 0.001f) {
+                val currentIsFav by viewModel.isFavorite.collectAsStateWithLifecycle()
+
+                // This BackHandler is composed AFTER NavHost, so it has
+                // the HIGHEST priority and intercepts back before NavController.
+                BackHandler(enabled = isPlayerExpanded) {
+                    viewModel.setPlayerExpanded(false)
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .zIndex(10f)
+                        .graphicsLayer {
+                            translationY = size.height * (1f - expansionProgress)
+                            alpha = expansionProgress.coerceIn(0f, 1f)
+                        }
+                        .background(MaterialTheme.colorScheme.background)
+                ) {
+                    NowPlayingContent(
+                        playbackState = playbackState,
+                        currentPosition = playbackProgress.currentPosition,
+                        isFavorite = currentIsFav,
+                        onNavigateBack = { viewModel.setPlayerExpanded(false) },
+                        onTogglePlayPause = { viewModel.togglePlayPause() },
+                        onSkipToNext = { viewModel.skipToNext() },
+                        onSkipToPrevious = { viewModel.skipToPrevious() },
+                        onSeek = { viewModel.seekTo(it) },
+                        onToggleFavorite = { viewModel.toggleFavorite() },
+                        onCycleRepeatMode = { viewModel.cycleRepeatMode() },
+                        onToggleShuffle = { viewModel.toggleShuffle() },
+                        expansionProgress = expansionProgress
+                    )
                 }
             }
         }

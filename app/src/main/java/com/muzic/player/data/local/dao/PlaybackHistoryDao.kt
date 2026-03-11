@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface PlaybackHistoryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(history: PlaybackHistoryEntity)
+    suspend fun insert(history: PlaybackHistoryEntity): Long
 
     // Gets the most recently played distinct song ids
     @Query("""
@@ -30,8 +30,21 @@ interface PlaybackHistoryDao {
     """)
     fun getTopSongs(limit: Int): Flow<List<SongPlayCount>>
 
+    @Query("SELECT COUNT(id) FROM playback_history WHERE songId = :songId AND playedAt >= :timestamp")
+    suspend fun getPlayCountSince(songId: Long, timestamp: Long): Int
+
     @Query("DELETE FROM playback_history")
     suspend fun clearHistory()
+
+    @Query("DELETE FROM playback_history WHERE id NOT IN (SELECT id FROM playback_history ORDER BY playedAt DESC LIMIT 200)")
+    suspend fun trimHistory()
+
+    @Query("""
+        SELECT DISTINCT songId FROM playback_history 
+        WHERE strftime('%H', datetime(playedAt/1000, 'unixepoch', 'localtime')) 
+        BETWEEN :startHour AND :endHour
+    """)
+    suspend fun getSongsPlayedInHourRange(startHour: String, endHour: String): List<Long>
 }
 
 data class SongPlayCount(

@@ -23,4 +23,10 @@ interface SongDao {
 
     @Query("SELECT COUNT(*) FROM cached_songs")
     suspend fun getCount(): Int
+
+    @Query("UPDATE cached_songs SET artist = :newArtist, album = :newAlbum, artworkUrl = :newArtworkUrl, artistImageUrl = :newArtistImageUrl WHERE id = :songId")
+    suspend fun updateSongMetadata(songId: Long, newArtist: String, newAlbum: String, newArtworkUrl: String?, newArtistImageUrl: String?)
+
+    @Query("SELECT MAX(dateModified) FROM cached_songs")
+    suspend fun getMaxDateModified(): Long?
 }

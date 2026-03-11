@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
@@ -78,7 +79,9 @@ fun ArtistDetailScreen(
                 )
             }
         } else {
+            val listState = rememberLazyListState()
             LazyColumn(
+                state = listState,
                 contentPadding = PaddingValues(bottom = 144.dp)
             ) {
                 // Header section with play button
@@ -151,6 +154,7 @@ fun ArtistDetailScreen(
                         isPlaying = playbackState.currentSong?.id == song.id,
                         onSongClick = { viewModel.playSong(song, artistSongs) },
                         onFavoriteClick = { viewModel.toggleFavorite(song.id) },
+                        isScrolling = listState.isScrollInProgress,
                         modifier = Modifier.padding(horizontal = adaptivePadding)
                     )
                 }

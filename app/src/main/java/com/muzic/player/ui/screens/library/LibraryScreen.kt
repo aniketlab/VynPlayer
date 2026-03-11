@@ -5,12 +5,14 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -21,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -32,6 +35,8 @@ import com.muzic.player.ui.screens.library.tabs.*
 import com.muzic.player.ui.theme.*
 import com.muzic.player.util.PermissionHelper
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -65,39 +70,65 @@ fun LibraryScreen(
     val tabs = listOf("Songs", "Albums", "Artists", "Playlists", "Folders")
     val pagerState = rememberPagerState(pageCount = { tabs.size })
     val coroutineScope = rememberCoroutineScope()
+    
+    // States for each tab to enable scroll-to-top
+    val songsListState = rememberLazyListState()
+    val albumsGridState = rememberLazyGridState()
+    val artistsGridState = rememberLazyGridState()
+    val playlistsListState = rememberLazyListState()
+    val foldersListState = rememberLazyListState()
+
+    val appViewModel: com.muzic.player.ui.MainViewModel = hiltViewModel()
+
+    LaunchedEffect(Unit) {
+        appViewModel.scrollToTopRequest.collect { route ->
+            if (route == com.muzic.player.ui.navigation.Screen.Library.route) {
+                when (pagerState.currentPage) {
+                    0 -> songsListState.animateScrollToItem(0)
+                    1 -> albumsGridState.animateScrollToItem(0)
+                    2 -> artistsGridState.animateScrollToItem(0)
+                    3 -> playlistsListState.animateScrollToItem(0)
+                    4 -> foldersListState.animateScrollToItem(0)
+                }
+            }
+        }
+    }
 
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
     var newPlaylistName by remember { mutableStateOf("") }
 
     val adaptivePadding = getAdaptivePadding()
-    
+
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "Muzic",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 28.sp,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        letterSpacing = 1.sp
-                    )
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.refreshLibrary() }) {
-                        Icon(
-                            imageVector = Icons.Rounded.Refresh,
-                            contentDescription = "Refresh",
-                            tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+            if (hasPermission) {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = "Muzic",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 28.sp,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            letterSpacing = 1.sp
                         )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    },
+                    actions = {
+                        IconButton(onClick = { viewModel.refreshLibrary() }) {
+                            Icon(
+                                imageVector = Icons.Rounded.Refresh,
+                                contentDescription = "Refresh",
+                                tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        scrolledContainerColor = MaterialTheme.colorScheme.background
+                    )
                 )
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background
+            }
+        }
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -158,80 +189,89 @@ fun LibraryScreen(
                     }
                 }
             } else {
-                // Tab Row - Responsive padding
-                ScrollableTabRow(
-                    selectedTabIndex = pagerState.currentPage,
-                    containerColor = Color.Transparent,
-                    contentColor = MaterialTheme.colorScheme.primary,
-                    edgePadding = adaptivePadding,
-                    indicator = { tabPositions ->
-                        if (pagerState.currentPage < tabPositions.size) {
-                            TabRowDefaults.SecondaryIndicator(
-                                modifier = Modifier
-                                    .tabIndicatorOffset(tabPositions[pagerState.currentPage]),
-                                color = MaterialTheme.colorScheme.primary,
-                                height = 3.dp
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    // Tab Row - Responsive padding
+                    ScrollableTabRow(
+                        selectedTabIndex = pagerState.currentPage,
+                        containerColor = Color.Transparent,
+                        contentColor = MaterialTheme.colorScheme.primary,
+                        edgePadding = adaptivePadding,
+                        indicator = { tabPositions ->
+                            if (pagerState.currentPage < tabPositions.size) {
+                                TabRowDefaults.SecondaryIndicator(
+                                    modifier = Modifier
+                                        .tabIndicatorOffset(tabPositions[pagerState.currentPage]),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    height = 3.dp
+                                )
+                            }
+                        },
+                        divider = {}
+                    ) {
+                        tabs.forEachIndexed { index, title ->
+                            Tab(
+                                selected = pagerState.currentPage == index,
+                                onClick = {
+                                    coroutineScope.launch {
+                                        pagerState.animateScrollToPage(index)
+                                    }
+                                },
+                                text = {
+                                    Text(
+                                        text = title,
+                                        fontWeight = if (pagerState.currentPage == index) FontWeight.Bold else FontWeight.Normal,
+                                        fontSize = 14.sp
+                                    )
+                                },
+                                selectedContentColor = MaterialTheme.colorScheme.primary,
+                                unselectedContentColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
                             )
                         }
-                    },
-                    divider = {}
-                ) {
-                    tabs.forEachIndexed { index, title ->
-                        Tab(
-                            selected = pagerState.currentPage == index,
-                            onClick = {
-                                coroutineScope.launch {
-                                    pagerState.animateScrollToPage(index)
-                                }
-                            },
-                            text = {
-                                Text(
-                                    text = title,
-                                    fontWeight = if (pagerState.currentPage == index) FontWeight.Bold else FontWeight.Normal,
-                                    fontSize = 14.sp
-                                )
-                            },
-                            selectedContentColor = MaterialTheme.colorScheme.primary,
-                            unselectedContentColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
-                        )
                     }
-                }
 
-                // Content
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.weight(1f)
-                ) { page ->
-                    when (page) {
-                        0 -> SongsTab(
-                            songs = uiState.songs,
-                            isLoading = uiState.isLoading,
-                            currentSongId = playbackState.currentSong?.id,
-                            onSongClick = { song -> viewModel.playSong(song) },
-                            onFavoriteClick = { songId -> viewModel.toggleFavorite(songId) }
-                        )
-                        1 -> AlbumsTab(
-                            albums = uiState.albums,
-                            isLoading = uiState.isLoading,
-                            onAlbumClick = { }
-                        )
-                        2 -> ArtistsTab(
-                            artists = uiState.artists,
-                            isLoading = uiState.isLoading,
-                            onArtistClick = { artist -> onNavigateToArtist(artist.name) }
-                        )
-                        3 -> PlaylistsTab(
-                            playlists = uiState.playlists,
-                            isLoading = uiState.isLoading,
-                            onPlaylistClick = { },
-                            onCreatePlaylistClick = { showCreatePlaylistDialog = true },
-                            onDeletePlaylistClick = { viewModel.deletePlaylist(it) }
-                        )
-                        4 -> FoldersTab(
-                            folders = uiState.folders,
-                            isLoading = uiState.isLoading,
-                            onFolderClick = { }
-                        )
+                    // Content
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.weight(1f)
+                    ) { page ->
+                        when (page) {
+                            0 -> SongsTab(
+                                songs = uiState.songs,
+                                isLoading = uiState.isLoading,
+                                currentSongId = playbackState.currentSong?.id,
+                                onSongClick = { song -> viewModel.playSong(song, uiState.songs) },
+                                onFavoriteClick = { songId -> viewModel.toggleFavorite(songId) },
+                                listState = songsListState
+                            )
+                            1 -> AlbumsTab(
+                                albums = uiState.albums,
+                                isLoading = uiState.isLoading,
+                                onAlbumClick = { },
+                                gridState = albumsGridState
+                            )
+                            2 -> ArtistsTab(
+                                artists = uiState.artists,
+                                isLoading = uiState.isLoading,
+                                onArtistClick = { artist -> onNavigateToArtist(artist.name) },
+                                gridState = artistsGridState
+                            )
+                            3 -> PlaylistsTab(
+                                playlists = uiState.playlists,
+                                isLoading = uiState.isLoading,
+                                onPlaylistClick = { },
+                                onCreatePlaylistClick = { showCreatePlaylistDialog = true },
+                                onDeletePlaylistClick = { viewModel.deletePlaylist(it) },
+                                listState = playlistsListState
+                            )
+                            4 -> FoldersTab(
+                                folders = uiState.folders,
+                                isLoading = uiState.isLoading,
+                                onFolderClick = { },
+                                listState = foldersListState
+                            )
+                        }
                     }
                 }
             }

@@ -3,7 +3,14 @@ package com.muzic.player.data.local.entity
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "cached_songs")
+@Entity(
+    tableName = "cached_songs",
+    indices = [
+        androidx.room.Index(value = ["album"]),
+        androidx.room.Index(value = ["artist"]),
+        androidx.room.Index(value = ["dateAdded"])
+    ]
+)
 data class SongEntity(
     @PrimaryKey val id: Long,
     val title: String,
@@ -20,5 +27,7 @@ data class SongEntity(
     val dateModified: Long,
     val mimeType: String,
     val folderName: String,
-    val folderPath: String
+    val folderPath: String,
+    val artworkUrl: String? = null,
+    val artistImageUrl: String? = null
 )

@@ -12,6 +12,7 @@ import com.muzic.player.data.repository.PlaylistRepository
 import com.muzic.player.data.preferences.UserPreferencesManager
 import com.muzic.player.player.PlaybackManager
 import com.muzic.player.player.PlaybackState
+import com.muzic.player.data.repository.SmartMixRepository
 import com.muzic.player.data.local.dao.SongPlayCount
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -33,7 +34,8 @@ data class LibraryUiState(
     val userSubtitle: String = "Music Enthusiast",
     val userAvatarUrl: String? = null,
     val recentSongs: List<Song> = emptyList(),
-    val topSongs: List<SongPlayCount> = emptyList()
+    val topSongs: List<SongPlayCount> = emptyList(),
+    val smartMixSongs: List<Song> = emptyList()
 )
 
 @HiltViewModel
@@ -41,6 +43,7 @@ class LibraryViewModel @Inject constructor(
     private val musicRepository: MusicRepository,
     private val playlistRepository: PlaylistRepository,
     private val userPreferencesManager: UserPreferencesManager,
+    private val smartMixRepository: SmartMixRepository,
     val playbackManager: PlaybackManager
 ) : ViewModel() {
 
@@ -50,14 +53,13 @@ class LibraryViewModel @Inject constructor(
     val playbackState: StateFlow<PlaybackState> = playbackManager.playbackState
 
     init {
-        loadLibrary()
-        
+        // 1. Observe User Preferences
         viewModelScope.launch {
             combine(
                 userPreferencesManager.userDisplayName,
                 userPreferencesManager.userSubtitle,
                 userPreferencesManager.userAvatarUrl
-            ) { name, sub, avatar ->
+            ) { name: String, sub: String, avatar: String? ->
                 Triple(name, sub, avatar)
             }.collect { (name, sub, avatar) ->
                 _uiState.update { 
@@ -70,70 +72,96 @@ class LibraryViewModel @Inject constructor(
             }
         }
 
-        viewModelScope.launch {
-            playbackState
-                .map { it.currentSong?.id }
-                .distinctUntilChanged()
-                .collect { songId ->
-                    if (songId != null) {
-                        musicRepository.recordSongPlayed(songId)
-                    }
+        // 2. Observe Songs (Reactive)
+        musicRepository.getAllSongs()
+            .onEach { songs ->
+                val sortedSongs = songs.sortedBy { song ->
+                    val title = song.title.lowercase()
+                    when {
+                        title.startsWith("the ") -> title.substring(4)
+                        title.startsWith("a ") -> title.substring(2)
+                        title.startsWith("an ") -> title.substring(3)
+                        else -> title
+                    }.trim()
                 }
-        }
+                _uiState.update { it.copy(songs = sortedSongs, isLoading = false) }
+            }
+            .launchIn(viewModelScope)
+
+        // 3. Observe Albums (Reactive)
+        musicRepository.getAllAlbums()
+            .onEach { albums -> _uiState.update { it.copy(albums = albums) } }
+            .launchIn(viewModelScope)
+
+        // 4. Observe Artists (Reactive)
+        musicRepository.getAllArtists()
+            .onEach { artists -> _uiState.update { it.copy(artists = artists) } }
+            .launchIn(viewModelScope)
+
+        // 5. Observe Folders (Reactive)
+        musicRepository.getAllFolders()
+            .onEach { folders -> _uiState.update { it.copy(folders = folders) } }
+            .launchIn(viewModelScope)
+
+        // 6. Observe Playlists (Reactive)
+        playlistRepository.getAllPlaylists()
+            .onEach { playlists -> _uiState.update { it.copy(playlists = playlists) } }
+            .launchIn(viewModelScope)
         
+        // 7. Recent Songs
         viewModelScope.launch {
-            musicRepository.getRecentSongs(50).collect { recentIds ->
-                val allSongs = _uiState.value.songs
-                if (allSongs.isNotEmpty()) {
-                    val recentSongs = recentIds.mapNotNull { id -> allSongs.find { it.id == id } }
-                    _uiState.update { it.copy(recentSongs = recentSongs) }
-                }
+            kotlinx.coroutines.flow.combine(
+                musicRepository.getAllSongs(),
+                musicRepository.getRecentSongs(50)
+            ) { allSongs, recentIds ->
+                recentIds.mapNotNull { id -> allSongs.find { it.id == id } }
+            }.collect { recentSongs ->
+                _uiState.update { it.copy(recentSongs = recentSongs.distinctBy { it.id }.take(50)) }
             }
         }
 
+        // 8. Top Songs
         viewModelScope.launch {
-            musicRepository.getTopSongs(50).collect { topSongs ->
-                _uiState.update { it.copy(topSongs = topSongs) }
+            kotlinx.coroutines.flow.combine(
+                musicRepository.getAllSongs(),
+                musicRepository.getTopSongs(50)
+            ) { allSongs, topCounters ->
+                topCounters.filter { counter -> allSongs.any { it.id == counter.songId } }
+            }.collect { validTopSongs ->
+                _uiState.update { it.copy(topSongs = validTopSongs) }
+            }
+        }
+
+        refreshSmartMix()
+    }
+
+    fun refreshSmartMix(force: Boolean = false) {
+        viewModelScope.launch {
+            val mix = smartMixRepository.getLatestMixSongs(force)
+            _uiState.update { it.copy(smartMixSongs = mix) }
+        }
+    }
+
+    fun playSmartMix() {
+        val currentMix = _uiState.value.smartMixSongs
+        if (currentMix.isNotEmpty()) {
+            playbackManager.playQueue(currentMix, 0)
+        } else {
+            viewModelScope.launch {
+                val mix = smartMixRepository.getLatestMixSongs()
+                if (mix.isNotEmpty()) {
+                    _uiState.update { it.copy(smartMixSongs = mix) }
+                    playbackManager.playQueue(mix, 0)
+                }
             }
         }
     }
 
     fun loadLibrary() {
+        // Redundant with reactive streams, but kept for manual refresh if needed
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-
-            try {
-                // Load songs
-                musicRepository.getAllSongs().collect { songs ->
-                    _uiState.update { it.copy(songs = songs, isLoading = false) }
-                }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message, isLoading = false) }
-            }
-        }
-
-        viewModelScope.launch {
-            musicRepository.getAllAlbums().collect { albums ->
-                _uiState.update { it.copy(albums = albums) }
-            }
-        }
-
-        viewModelScope.launch {
-            musicRepository.getAllArtists().collect { artists ->
-                _uiState.update { it.copy(artists = artists) }
-            }
-        }
-
-        viewModelScope.launch {
-            playlistRepository.getAllPlaylists().collect { playlists ->
-                _uiState.update { it.copy(playlists = playlists) }
-            }
-        }
-
-        viewModelScope.launch {
-            musicRepository.getAllFolders().collect { folders ->
-                _uiState.update { it.copy(folders = folders) }
-            }
+             _uiState.update { it.copy(isLoading = true) }
+             // Initial scan trigger is already in MusicRepository.getAllSongs()
         }
     }
 

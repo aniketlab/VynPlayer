@@ -24,6 +24,15 @@ class QueueManager {
         _isShuffled = false
     }
 
+    fun setQueueManual(songs: List<Song>) {
+        _originalQueue = songs.toList()
+        _currentQueue = songs.toList()
+    }
+
+    fun setCurrentIndex(index: Int) {
+        _currentIndex = index.coerceIn(-1, _currentQueue.size - 1)
+    }
+
     fun addToQueue(song: Song) {
         _originalQueue = _originalQueue + song
         _currentQueue = _currentQueue + song

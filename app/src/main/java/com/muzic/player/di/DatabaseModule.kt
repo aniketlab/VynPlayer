@@ -46,4 +46,24 @@ object DatabaseModule {
     fun provideSongDao(database: MuzicDatabase): com.muzic.player.data.local.dao.SongDao {
         return database.songDao()
     }
+
+    @Provides
+    fun provideSongStatsDao(database: MuzicDatabase): com.muzic.player.data.local.dao.SongStatsDao {
+        return database.songStatsDao()
+    }
+
+    @Provides
+    fun provideSmartMixDao(database: MuzicDatabase): com.muzic.player.data.local.dao.SmartMixDao {
+        return database.smartMixDao()
+    }
+
+    @Provides
+    fun provideRecentTrackDao(database: MuzicDatabase): com.muzic.player.data.local.dao.RecentTrackDao {
+        return database.recentTrackDao()
+    }
+
+    @Provides
+    fun provideAlbumArtworkDao(database: MuzicDatabase): com.muzic.player.data.local.dao.AlbumArtworkDao {
+        return database.albumArtworkDao()
+    }
 }

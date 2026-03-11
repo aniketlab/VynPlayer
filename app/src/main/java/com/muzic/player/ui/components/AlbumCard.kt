@@ -25,7 +25,8 @@ import com.muzic.player.ui.theme.*
 fun AlbumCard(
     album: Album,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isScrolling: Boolean = false
 ) {
     Column(
         modifier = modifier
@@ -42,7 +43,11 @@ fun AlbumCard(
                 .aspectRatio(1f),
             fallbackText = album.name,
             cornerRadius = 14.dp,
-            iconSize = 40.dp
+            iconSize = 40.dp,
+            albumName = album.name,
+            artistName = album.artist,
+            isScrolling = isScrolling,
+            thumbnailMode = true
         )
 
         Spacer(modifier = Modifier.height(8.dp))

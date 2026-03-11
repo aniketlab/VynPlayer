@@ -53,13 +53,13 @@ class MuzicPlaybackService : MediaSessionService() {
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        val player = mediaSession?.player
-        if (player == null || !player.playWhenReady || player.mediaItemCount == 0) {
-            stopSelf()
-        }
+        // Stop playback and save state on app close
+        mediaSession?.player?.pause()
+        stopSelf()
     }
 
     override fun onDestroy() {
+        playbackManager.release()
         mediaSession?.run {
             player.release()
             release()
