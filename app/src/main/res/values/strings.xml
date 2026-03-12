@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Muzic</string>
+    <string name="app_name">VYN PLAYER</string>
     <string name="notification_channel_name">Muzic Playback</string>
     <string name="notification_channel_description">Controls for currently playing music</string>
 </resources>

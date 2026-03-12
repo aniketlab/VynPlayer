@@ -7,11 +7,11 @@ plugins {
 }
 
 android {
-    namespace = "com.muzic.player"
+    namespace = "com.vyn.player"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.muzic.player"
+        applicationId = "com.vyn.player"
         minSdk = 29
         targetSdk = 36
         versionCode = 3
