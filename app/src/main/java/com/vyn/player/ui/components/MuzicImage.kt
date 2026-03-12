@@ -88,43 +88,39 @@ fun MuzicImage(
     Surface(
         modifier = modifier.clip(RoundedCornerShape(cornerRadius)),
         shape = RoundedCornerShape(cornerRadius),
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        color = MaterialTheme.colorScheme.surfaceVariant, // Paint over
         tonalElevation = elevation,
         shadowElevation = elevation
     ) {
+        val actualModel = if (!isEmpty && !isError) model
+            else if (internetModel != null) internetModel
+            else null
+            
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .background(placeholderBrush),
             contentAlignment = Alignment.Center
         ) {
-            val actualModel = if (!isEmpty && !isError) model
-                else if (internetModel != null) internetModel
-                else null
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(placeholderBrush),
-                contentAlignment = Alignment.Center
-            ) {
-                val displayFallback = if (fallbackText.isNullOrBlank() ||
-                    fallbackText == "0" ||
-                    fallbackText.lowercase().contains("unknown")) null else fallbackText
+            val displayFallback = if (fallbackText.isNullOrBlank() ||
+                fallbackText == "0" ||
+                fallbackText.lowercase().contains("unknown")) null else fallbackText
 
-                if (displayFallback != null) {
-                    Text(
-                        text = displayFallback.take(1).uppercase(),
-                        color = fallbackTextColor.copy(alpha = 0.85f),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = (cornerRadius.value * 3.5f).coerceIn(24f, 130f).sp,
-                        textAlign = TextAlign.Center
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Rounded.MusicNote,
-                        contentDescription = null,
-                        tint = fallbackTextColor.copy(alpha = 0.85f),
-                        modifier = Modifier.size(iconSize * 1.5f)
-                    )
-                }
+            if (displayFallback != null) {
+                Text(
+                    text = displayFallback.take(1).uppercase(),
+                    color = fallbackTextColor.copy(alpha = 0.85f),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = (cornerRadius.value * 3.5f).coerceIn(24f, 130f).sp,
+                    textAlign = TextAlign.Center
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Rounded.MusicNote,
+                    contentDescription = null,
+                    tint = fallbackTextColor.copy(alpha = 0.85f),
+                    modifier = Modifier.size(iconSize * 1.5f)
+                )
             }
 
             if (actualModel != null) {

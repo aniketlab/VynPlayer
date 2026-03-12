@@ -30,6 +30,7 @@ fun ArtistCard(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .height(68.dp)
             .clip(RoundedCornerShape(12.dp))
             .bounceClick(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 10.dp),

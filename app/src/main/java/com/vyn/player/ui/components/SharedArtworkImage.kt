@@ -230,35 +230,32 @@ fun SharedArtworkImage(
     Surface(
         modifier = modifier.clip(RoundedCornerShape(cornerRadius)),
         shape = RoundedCornerShape(cornerRadius),
-        color = surfaceColor,
+        color = surfaceColor, // Will be completely painting over
         tonalElevation = elevation,
         shadowElevation = elevation
     ) {
+        // Flattened Box with background brush directly
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .background(placeholderBrush),
             contentAlignment = Alignment.Center
         ) {
-            // Always show fallback gradient behind — no blank white flash
-            Box(
-                modifier = Modifier.fillMaxSize().background(placeholderBrush),
-                contentAlignment = Alignment.Center
-            ) {
-                if (fallbackLetter != null) {
-                    Text(
-                        text = fallbackLetter,
-                        color = fallbackTextColor.copy(alpha = 0.85f),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = (cornerRadius.value * 3.5f).coerceIn(24f, 130f).sp,
-                        textAlign = TextAlign.Center
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Rounded.MusicNote,
-                        contentDescription = null,
-                        tint = fallbackTextColor.copy(alpha = 0.85f),
-                        modifier = Modifier.size(iconSize * 1.5f)
-                    )
-                }
+            if (fallbackLetter != null) {
+                Text(
+                    text = fallbackLetter,
+                    color = fallbackTextColor.copy(alpha = 0.85f),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = (cornerRadius.value * 3.5f).coerceIn(24f, 130f).sp,
+                    textAlign = TextAlign.Center
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Rounded.MusicNote,
+                    contentDescription = null,
+                    tint = fallbackTextColor.copy(alpha = 0.85f),
+                    modifier = Modifier.size(iconSize * 1.5f)
+                )
             }
 
             // Real artwork overlaid on top with crossfade

@@ -9,7 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.*
@@ -155,20 +155,17 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(spacingMedium))
 
             // Search Bar
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = adaptivePadding)
                     .height(52.dp)
                     .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
                     .bounceClick(onClick = onNavigateToSearch)
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                ) {
                     Icon(
                         Icons.Rounded.Search,
                         contentDescription = "Search",
@@ -182,8 +179,7 @@ fun HomeScreen(
                         fontWeight = FontWeight.Medium
                     )
                 }
-            }
-
+            
             Spacer(modifier = Modifier.height(spacingSection))
             } // Close first item block
 
@@ -374,17 +370,14 @@ fun HomeScreen(
 
 @Composable
 fun FilterPill(label: String, icon: ImageVector, onClick: () -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
+    Row(
         modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .bounceClick(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
-        ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
@@ -399,7 +392,6 @@ fun FilterPill(label: String, icon: ImageVector, onClick: () -> Unit) {
                 fontSize = 14.sp
             )
         }
-    }
 }
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -507,9 +499,10 @@ fun LocalTrackItem(song: Song, onClick: () -> Unit, modifier: Modifier = Modifie
             )
         }
         Spacer(Modifier.width(12.dp))
-        Surface(
-            shape = RoundedCornerShape(6.dp),
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(6.dp))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
         ) {
             Text(
                 text = badgeText,
@@ -538,19 +531,15 @@ fun SmartMixCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .bounceClick(onClick = onClick),
-        shape = RoundedCornerShape(28.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+            .clip(RoundedCornerShape(28.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f), RoundedCornerShape(28.dp))
+            .bounceClick(onClick = onClick)
+            .padding(16.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
             // 2x2 Grid Collage
             Box(
                 modifier = Modifier
@@ -614,7 +603,6 @@ fun SmartMixCard(
                     Spacer(Modifier.width(8.dp))
                     Text("Play", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
-            }
         }
     }
 }
