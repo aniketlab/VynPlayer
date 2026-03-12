@@ -26,6 +26,12 @@ class MuzicApp : Application(), ImageLoaderFactory {
                     .strongReferencesEnabled(true)
                     .build()
             }
+            .diskCache {
+                coil.disk.DiskCache.Builder()
+                    .directory(this.cacheDir.resolve("image_cache"))
+                    .maxSizePercent(0.05) // ~5% of free disk space
+                    .build()
+            }
             .respectCacheHeaders(false)
             .crossfade(true)
             .crossfade(300)

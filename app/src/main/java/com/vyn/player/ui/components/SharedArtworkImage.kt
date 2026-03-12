@@ -67,6 +67,7 @@ private val inFlightKeys = ConcurrentHashMap.newKeySet<String>()
  */
 suspend fun extractArtworkModel(
     song: Song,
+    context: android.content.Context,
     artworkRepo: ArtworkRepository? = null,
     thumbnailMode: Boolean = false
 ): Any? = withContext(Dispatchers.IO) {
@@ -80,6 +81,17 @@ suspend fun extractArtworkModel(
 
     // Only one coroutine per song at a time
     if (!inFlightKeys.add(cacheKey)) return@withContext null
+
+    val thumbCacheDir = File(context.cacheDir, "artwork_thumbs")
+    if (!thumbCacheDir.exists()) thumbCacheDir.mkdirs()
+    val cacheFile = File(thumbCacheDir, "${song.id}_thumb.jpg")
+
+    // Check disk cache first
+    if (cacheFile.exists() && cacheFile.length() > 0) {
+        inFlightKeys.remove(cacheKey)
+        ArtworkModelCache.cache.put(cacheKey, cacheFile)
+        return@withContext cacheFile
+    }
 
     try {
         var result: Any? = null
@@ -103,7 +115,14 @@ suspend fun extractArtworkModel(
                 retriever.setDataSource(song.path)
                 val picture = retriever.embeddedPicture
                 retriever.release()
-                if (picture != null) result = picture
+                if (picture != null) {
+                    try {
+                        cacheFile.writeBytes(picture)
+                        result = cacheFile
+                    } catch (e: Exception) {
+                        result = picture
+                    }
+                }
             } catch (_: Exception) {}
         }
 
@@ -146,6 +165,7 @@ fun SharedArtworkImage(
     isScrolling: Boolean = false
 ) {
     val artworkRepository = LocalArtworkRepository.current
+    val context = LocalContext.current
 
     // ── 1. Synchronous memory-cache read (no coroutine, no delay) ──────────
     val initialModel = remember(song?.id) {
@@ -168,8 +188,9 @@ fun SharedArtworkImage(
         if (cached === "NONE") return@LaunchedEffect
 
         // Run extraction off the main thread — never blocks scroll
+        val context = context
         val model = withContext(Dispatchers.IO) {
-            extractArtworkModel(song, artworkRepository, thumbnailMode)
+            extractArtworkModel(song, context, artworkRepository, thumbnailMode)
         }
         if (model != null && model !== activeModel) {
             activeModel = model
@@ -242,7 +263,6 @@ fun SharedArtworkImage(
 
             // Real artwork overlaid on top with crossfade
             if (activeModel != null) {
-                val context = LocalContext.current
                 val request = remember(activeModel, thumbnailMode, song?.id) {
                     val builder = ImageRequest.Builder(context)
                         .data(activeModel)

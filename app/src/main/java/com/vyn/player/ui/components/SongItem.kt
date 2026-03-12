@@ -53,6 +53,7 @@ fun SongItem(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .height(72.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(bgColor)
             .bounceCombinedClickable(
