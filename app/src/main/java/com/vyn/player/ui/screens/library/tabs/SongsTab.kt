@@ -2,7 +2,6 @@ package com.vyn.player.ui.screens.library.tabs
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import com.vyn.player.ui.components.animateListEntry
 import androidx.compose.material.icons.Icons
@@ -15,10 +14,7 @@ import androidx.compose.ui.unit.dp
 import com.vyn.player.data.model.Song
 import com.vyn.player.ui.components.SongItem
 import com.vyn.player.ui.theme.*
-import coil.imageLoader
-import coil.request.ImageRequest
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun SongsTab(
@@ -28,6 +24,7 @@ fun SongsTab(
     onSongClick: (Song) -> Unit,
     onFavoriteClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    headerContent: (@Composable () -> Unit)? = null,
     listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState()
 ) {
     Box(modifier = modifier.fillMaxSize()) {
@@ -65,8 +62,6 @@ fun SongsTab(
             }
             else -> {
                 val adaptivePadding = getAdaptivePadding()
-                val context = LocalContext.current
-
                 val chunkSize = 50
                 val displayedItemsCountState = androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(chunkSize) }
 
@@ -95,14 +90,10 @@ fun SongsTab(
                     contentPadding = PaddingValues(vertical = 8.dp),
                     flingBehavior = androidx.compose.foundation.gestures.ScrollableDefaults.flingBehavior()
                 ) {
-                    // Song count header
-                    item {
-                        Text(
-                            text = "${songs.size} songs",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                            modifier = Modifier.padding(horizontal = adaptivePadding, vertical = 8.dp)
-                        )
+                    if (headerContent != null) {
+                        item {
+                            headerContent()
+                        }
                     }
 
                     itemsIndexed(

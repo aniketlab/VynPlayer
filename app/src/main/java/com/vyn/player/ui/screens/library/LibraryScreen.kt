@@ -4,26 +4,20 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.*
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -31,12 +25,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.vyn.player.ui.screens.library.tabs.*
+import com.vyn.player.ui.navigation.Screen
+import com.vyn.player.ui.screens.library.tabs.SongsTab
 import com.vyn.player.ui.theme.*
 import com.vyn.player.util.PermissionHelper
-import kotlinx.coroutines.launch
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -67,37 +59,29 @@ fun LibraryScreen(
         }
     }
 
-    val tabs = listOf("Songs", "Albums", "Artists", "Playlists", "Folders")
-    val pagerState = rememberPagerState(pageCount = { tabs.size })
-    val coroutineScope = rememberCoroutineScope()
-    
-    // States for each tab to enable scroll-to-top
     val songsListState = rememberLazyListState()
-    val albumsGridState = rememberLazyGridState()
-    val artistsGridState = rememberLazyGridState()
-    val playlistsListState = rememberLazyListState()
-    val foldersListState = rememberLazyListState()
 
     val appViewModel: com.vyn.player.ui.MainViewModel = hiltViewModel()
 
     LaunchedEffect(Unit) {
         appViewModel.scrollToTopRequest.collect { route ->
-            if (route == com.vyn.player.ui.navigation.Screen.Library.route) {
-                when (pagerState.currentPage) {
-                    0 -> songsListState.animateScrollToItem(0)
-                    1 -> albumsGridState.animateScrollToItem(0)
-                    2 -> artistsGridState.animateScrollToItem(0)
-                    3 -> playlistsListState.animateScrollToItem(0)
-                    4 -> foldersListState.animateScrollToItem(0)
-                }
+            if (route == Screen.Library.route) {
+                songsListState.animateScrollToItem(0)
             }
         }
     }
 
-    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
-    var newPlaylistName by remember { mutableStateOf("") }
-
     val adaptivePadding = getAdaptivePadding()
+    var showSortMenu by remember { mutableStateOf(false) }
+    val sortOptions = remember {
+        listOf(
+            LibrarySortOption.AZ to "A-Z",
+            LibrarySortOption.RECENTLY_ADDED to "Recently Added",
+            LibrarySortOption.ARTIST to "Artist",
+            LibrarySortOption.DURATION to "Duration"
+        )
+    }
+    val selectedSortLabel = sortOptions.firstOrNull { it.first == uiState.selectedSortOption }?.second ?: "A-Z"
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -192,133 +176,123 @@ fun LibraryScreen(
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
-                    // Tab Row - Responsive padding
-                    ScrollableTabRow(
-                        selectedTabIndex = pagerState.currentPage,
-                        containerColor = Color.Transparent,
-                        contentColor = MaterialTheme.colorScheme.primary,
-                        edgePadding = adaptivePadding,
-                        indicator = { tabPositions ->
-                            if (pagerState.currentPage < tabPositions.size) {
-                                TabRowDefaults.SecondaryIndicator(
-                                    modifier = Modifier
-                                        .tabIndicatorOffset(tabPositions[pagerState.currentPage]),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    height = 3.dp
+                    SongsTab(
+                        songs = uiState.displayedSongs,
+                        isLoading = uiState.isLoading,
+                        currentSongId = playbackState.currentSong?.id,
+                        onSongClick = { song -> viewModel.playSong(song, uiState.displayedSongs) },
+                        onFavoriteClick = { songId -> viewModel.toggleFavorite(songId) },
+                        headerContent = {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = adaptivePadding, vertical = 12.dp)
+                            ) {
+                                Text(
+                                    text = "Library",
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onBackground
                                 )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "${uiState.songs.size} songs",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f)
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Button(
+                                        onClick = { viewModel.shuffleAllDisplayedSongs() },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(16.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Shuffle,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Shuffle All")
+                                    }
+
+                                    FilledTonalButton(
+                                        onClick = { viewModel.playAllDisplayedSongs() },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(16.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.PlayArrow,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Play All")
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Sort by",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+
+                                    Box {
+                                        OutlinedButton(
+                                            onClick = { showSortMenu = true },
+                                            shape = RoundedCornerShape(14.dp)
+                                        ) {
+                                            Text(selectedSortLabel)
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Icon(
+                                                imageVector = Icons.Rounded.ArrowDropDown,
+                                                contentDescription = "Sort options"
+                                            )
+                                        }
+
+                                        DropdownMenu(
+                                            expanded = showSortMenu,
+                                            onDismissRequest = { showSortMenu = false }
+                                        ) {
+                                            sortOptions.forEach { (option, label) ->
+                                                DropdownMenuItem(
+                                                    text = { Text(label) },
+                                                    onClick = {
+                                                        viewModel.setSortOption(option)
+                                                        showSortMenu = false
+                                                    },
+                                                    trailingIcon = {
+                                                        if (option == uiState.selectedSortOption) {
+                                                            Icon(
+                                                                imageVector = Icons.Rounded.Check,
+                                                                contentDescription = null
+                                                            )
+                                                        }
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         },
-                        divider = {}
-                    ) {
-                        tabs.forEachIndexed { index, title ->
-                            Tab(
-                                selected = pagerState.currentPage == index,
-                                onClick = {
-                                    coroutineScope.launch {
-                                        pagerState.animateScrollToPage(index)
-                                    }
-                                },
-                                text = {
-                                    Text(
-                                        text = title,
-                                        fontWeight = if (pagerState.currentPage == index) FontWeight.Bold else FontWeight.Normal,
-                                        fontSize = 14.sp
-                                    )
-                                },
-                                selectedContentColor = MaterialTheme.colorScheme.primary,
-                                unselectedContentColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
-                            )
-                        }
-                    }
-
-                    // Content
-                    HorizontalPager(
-                        state = pagerState,
+                        listState = songsListState,
                         modifier = Modifier.weight(1f)
-                    ) { page ->
-                        when (page) {
-                            0 -> SongsTab(
-                                songs = uiState.songs,
-                                isLoading = uiState.isLoading,
-                                currentSongId = playbackState.currentSong?.id,
-                                onSongClick = { song -> viewModel.playSong(song, uiState.songs) },
-                                onFavoriteClick = { songId -> viewModel.toggleFavorite(songId) },
-                                listState = songsListState
-                            )
-                            1 -> AlbumsTab(
-                                albums = uiState.albums,
-                                isLoading = uiState.isLoading,
-                                onAlbumClick = { },
-                                gridState = albumsGridState
-                            )
-                            2 -> ArtistsTab(
-                                artists = uiState.artists,
-                                isLoading = uiState.isLoading,
-                                onArtistClick = { artist -> onNavigateToArtist(artist.name) },
-                                gridState = artistsGridState
-                            )
-                            3 -> PlaylistsTab(
-                                playlists = uiState.playlists,
-                                isLoading = uiState.isLoading,
-                                onPlaylistClick = { },
-                                onCreatePlaylistClick = { showCreatePlaylistDialog = true },
-                                onDeletePlaylistClick = { viewModel.deletePlaylist(it) },
-                                listState = playlistsListState
-                            )
-                            4 -> FoldersTab(
-                                folders = uiState.folders,
-                                isLoading = uiState.isLoading,
-                                onFolderClick = { },
-                                listState = foldersListState
-                            )
-                        }
-                    }
+                    )
                 }
             }
         }
-    }
-
-    // Create playlist dialog
-    if (showCreatePlaylistDialog) {
-        AlertDialog(
-            onDismissRequest = { showCreatePlaylistDialog = false },
-            containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(20.dp),
-            title = {
-                Text("New Playlist", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
-            },
-            text = {
-                OutlinedTextField(
-                    value = newPlaylistName,
-                    onValueChange = { newPlaylistName = it },
-                    label = { Text("Playlist name") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        cursorColor = MaterialTheme.colorScheme.primary,
-                        focusedLabelColor = MaterialTheme.colorScheme.primary
-                    )
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (newPlaylistName.isNotBlank()) {
-                            viewModel.createPlaylist(newPlaylistName)
-                            newPlaylistName = ""
-                            showCreatePlaylistDialog = false
-                        }
-                    }
-                ) {
-                    Text("Create", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showCreatePlaylistDialog = false }) {
-                    Text("Cancel", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-                }
-            }
-        )
     }
 }

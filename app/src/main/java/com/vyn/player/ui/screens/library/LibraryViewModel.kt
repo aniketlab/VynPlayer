@@ -19,8 +19,39 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+enum class LibrarySortOption {
+    AZ,
+    RECENTLY_ADDED,
+    ARTIST,
+    DURATION
+}
+
+private fun Song.normalizedTitleForSort(): String {
+    val title = title.lowercase()
+    return when {
+        title.startsWith("the ") -> title.substring(4)
+        title.startsWith("a ") -> title.substring(2)
+        title.startsWith("an ") -> title.substring(3)
+        else -> title
+    }.trim()
+}
+
+private fun Song.normalizedArtistForSort(): String {
+    return artist.trim().lowercase().ifBlank { "unknown artist" }
+}
+
+private fun List<Song>.sortedFor(option: LibrarySortOption): List<Song> {
+    return when (option) {
+        LibrarySortOption.AZ -> sortedWith(compareBy<Song> { it.normalizedTitleForSort() }.thenBy { it.id })
+        LibrarySortOption.RECENTLY_ADDED -> sortedWith(compareByDescending<Song> { it.dateAdded }.thenBy { it.normalizedTitleForSort() })
+        LibrarySortOption.ARTIST -> sortedWith(compareBy<Song> { it.normalizedArtistForSort() }.thenBy { it.normalizedTitleForSort() }.thenBy { it.id })
+        LibrarySortOption.DURATION -> sortedWith(compareByDescending<Song> { it.duration }.thenBy { it.normalizedTitleForSort() })
+    }
+}
+
 data class LibraryUiState(
     val songs: List<Song> = emptyList(),
+    val displayedSongs: List<Song> = emptyList(),
     val albums: List<Album> = emptyList(),
     val artists: List<Artist> = emptyList(),
     val playlists: List<Playlist> = emptyList(),
@@ -35,7 +66,8 @@ data class LibraryUiState(
     val userAvatarUrl: String? = null,
     val recentSongs: List<Song> = emptyList(),
     val topSongs: List<SongPlayCount> = emptyList(),
-    val smartMixSongs: List<Song> = emptyList()
+    val smartMixSongs: List<Song> = emptyList(),
+    val selectedSortOption: LibrarySortOption = LibrarySortOption.AZ
 )
 
 @HiltViewModel
@@ -75,16 +107,13 @@ class LibraryViewModel @Inject constructor(
         // 2. Observe Songs (Reactive)
         musicRepository.getAllSongs()
             .onEach { songs ->
-                val sortedSongs = songs.sortedBy { song ->
-                    val title = song.title.lowercase()
-                    when {
-                        title.startsWith("the ") -> title.substring(4)
-                        title.startsWith("a ") -> title.substring(2)
-                        title.startsWith("an ") -> title.substring(3)
-                        else -> title
-                    }.trim()
+                _uiState.update {
+                    it.copy(
+                        songs = songs,
+                        displayedSongs = songs.sortedFor(it.selectedSortOption),
+                        isLoading = false
+                    )
                 }
-                _uiState.update { it.copy(songs = sortedSongs, isLoading = false) }
             }
             .launchIn(viewModelScope)
 
@@ -170,9 +199,33 @@ class LibraryViewModel @Inject constructor(
     }
 
     fun playSong(song: Song, queue: List<Song>? = null) {
-        val songList = queue ?: _uiState.value.songs
+        val songList = queue ?: _uiState.value.displayedSongs
         val index = songList.indexOf(song).coerceAtLeast(0)
         playbackManager.playQueue(songList, index)
+    }
+
+    fun setSortOption(option: LibrarySortOption) {
+        _uiState.update {
+            it.copy(
+                selectedSortOption = option,
+                displayedSongs = it.songs.sortedFor(option)
+            )
+        }
+    }
+
+    fun playAllDisplayedSongs() {
+        val songs = _uiState.value.displayedSongs
+        if (songs.isNotEmpty()) {
+            playbackManager.playQueue(songs, 0)
+        }
+    }
+
+    fun shuffleAllDisplayedSongs() {
+        val songs = _uiState.value.displayedSongs
+        if (songs.isNotEmpty()) {
+            val shuffledSongs = songs.shuffled()
+            playbackManager.playQueue(shuffledSongs, 0)
+        }
     }
 
     fun toggleFavorite(songId: Long) {
@@ -180,7 +233,12 @@ class LibraryViewModel @Inject constructor(
             musicRepository.toggleFavorite(songId)
             // Refresh the song list to update favorite status
             musicRepository.getAllSongs().collect { songs ->
-                _uiState.update { it.copy(songs = songs) }
+                _uiState.update {
+                    it.copy(
+                        songs = songs,
+                        displayedSongs = songs.sortedFor(it.selectedSortOption)
+                    )
+                }
             }
         }
     }
