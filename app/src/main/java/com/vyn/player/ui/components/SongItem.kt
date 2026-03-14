@@ -43,6 +43,10 @@ fun SongItem(
     isScrolling: Boolean = false
 ) {
     var showActionSheet by remember { mutableStateOf(false) }
+    val cleanTitle = remember(song.title) { com.vyn.player.util.MetadataUtils.cleanTitle(song.title) }
+    val subtitle = remember(song.artist, song.duration) {
+        "${com.vyn.player.util.MetadataUtils.cleanArtist(song.artist)} • ${TimeUtils.formatDuration(song.duration)}"
+    }
 
     val bgColor by animateColorAsState(
         targetValue = if (isPlaying) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent,
@@ -99,7 +103,7 @@ fun SongItem(
         // Song info
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = com.vyn.player.util.MetadataUtils.cleanTitle(song.title),
+                text = cleanTitle,
                 style = MaterialTheme.typography.bodyLarge,
                 color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 fontWeight = if (isPlaying) FontWeight.Bold else FontWeight.SemiBold,
@@ -110,7 +114,7 @@ fun SongItem(
             )
             Spacer(modifier = Modifier.height(3.dp))
             Text(
-                text = "${com.vyn.player.util.MetadataUtils.cleanArtist(song.artist)} • ${TimeUtils.formatDuration(song.duration)}",
+                text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 maxLines = 1,

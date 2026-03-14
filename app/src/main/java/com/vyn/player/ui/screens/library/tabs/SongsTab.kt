@@ -77,13 +77,36 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.min
 
+private const val CONTENT_TYPE_HEADER = "song_header"
+private const val CONTENT_TYPE_ROW = "song_row"
+private const val NORMAL_PREFETCH_COUNT = 5
+private const val FAST_PREFETCH_COUNT = 10
+private const val FAST_SCROLL_VELOCITY_THRESHOLD = 2.2f
+
 private data class SongSection(
     val letter: String,
     val songs: List<Song>
+)
+
+private data class ScrollSample(
+    val timestampNanos: Long,
+    val lastVisibleLazyIndex: Int,
+    val lastVisibleOffset: Int,
+)
+
+private data class PrefetchWindow(
+    val startSongIndex: Int,
+    val endSongIndex: Int,
+)
+
+private data class ScrollSamplePair(
+    val previous: ScrollSample?,
+    val current: ScrollSample?,
 )
 
 @Stable
@@ -92,6 +115,7 @@ private data class FastScrollMetadata(
     val songIndexToLazyIndex: List<Int>,
     val lazyIndexToSongIndex: List<Int>,
     val lazyIndexToLetter: List<String>,
+    val songLazyIndexLookup: Set<Int>,
     val totalLazyItems: Int,
     val totalSongItems: Int,
 )
@@ -141,6 +165,7 @@ private fun buildFastScrollMetadata(
         songIndexToLazyIndex = songIndexToLazyIndex,
         lazyIndexToSongIndex = lazyIndexToSongIndex,
         lazyIndexToLetter = lazyIndexToLetter,
+        songLazyIndexLookup = songIndexToLazyIndex.toHashSet(),
         totalLazyItems = lazyIndex,
         totalSongItems = songs.size,
     )
@@ -185,9 +210,20 @@ private fun LibraryListPrefetchEffect(
 
     LaunchedEffect(listState, songs, metadata) {
         snapshotFlow {
-            listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
+            ScrollSample(
+                timestampNanos = System.nanoTime(),
+                lastVisibleLazyIndex = lastVisibleItem?.index ?: 0,
+                lastVisibleOffset = lastVisibleItem?.offset ?: 0,
+            )
         }
-            .map { lastVisibleLazyIndex ->
+            .runningFold(ScrollSamplePair(previous = null, current = null)) { accumulator, current ->
+                ScrollSamplePair(previous = accumulator.current, current = current)
+            }
+            .map { samplePair ->
+                val currentSample = samplePair.current ?: return@map null
+                val previousSample = samplePair.previous
+                val lastVisibleLazyIndex = currentSample.lastVisibleLazyIndex
                 val lastVisibleSongIndex = metadata.lazyIndexToSongIndex
                     .getOrNull(lastVisibleLazyIndex.coerceIn(0, metadata.lazyIndexToSongIndex.lastIndex))
                     ?.takeIf { it >= 0 }
@@ -196,15 +232,30 @@ private fun LibraryListPrefetchEffect(
                         .lastOrNull { it >= 0 }
                     ?: 0
 
+                val velocityRowsPerFrame = if (previousSample != null) {
+                    val deltaTimeNanos = (currentSample.timestampNanos - previousSample.timestampNanos).coerceAtLeast(1L)
+                    val deltaRows = (currentSample.lastVisibleLazyIndex - previousSample.lastVisibleLazyIndex).toFloat()
+                    val deltaOffset = (currentSample.lastVisibleOffset - previousSample.lastVisibleOffset).toFloat() / 400f
+                    ((deltaRows + deltaOffset) * 1_000_000_000f) / deltaTimeNanos.toFloat()
+                } else {
+                    0f
+                }
+
+                val prefetchCount = if (abs(velocityRowsPerFrame) >= FAST_SCROLL_VELOCITY_THRESHOLD) {
+                    FAST_PREFETCH_COUNT
+                } else {
+                    NORMAL_PREFETCH_COUNT
+                }
                 val prefetchStart = (lastVisibleSongIndex + 1).coerceAtMost(songs.lastIndex)
-                val prefetchEnd = min(lastVisibleSongIndex + 6, songs.lastIndex)
-                if (prefetchStart > prefetchEnd) emptyList() else songs.subList(prefetchStart, prefetchEnd + 1).map { it.id to it }
+                val prefetchEnd = min(lastVisibleSongIndex + prefetchCount, songs.lastIndex)
+                if (prefetchStart > prefetchEnd) null else PrefetchWindow(prefetchStart, prefetchEnd)
             }
             .distinctUntilChanged()
-            .collectLatest { upcomingSongs: List<Pair<Long, Song>> ->
-                upcomingSongs.forEach { entry: Pair<Long, Song> ->
+            .collectLatest { window: PrefetchWindow? ->
+                if (window == null) return@collectLatest
+                songs.subList(window.startSongIndex, window.endSongIndex + 1).forEach { song ->
                     extractArtworkModel(
-                        song = entry.second,
+                        song = song,
                         context = context,
                         artworkRepo = artworkRepository,
                         thumbnailMode = true,
@@ -276,6 +327,9 @@ fun SongsTab(
                 )
 
                 Box(modifier = Modifier.fillMaxSize()) {
+                    val songRowModifier = remember(adaptivePadding) {
+                        Modifier.padding(horizontal = adaptivePadding)
+                    }
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         state = listState,
@@ -283,13 +337,13 @@ fun SongsTab(
                         flingBehavior = flingBehavior,
                     ) {
                         if (headerContent != null) {
-                            item(key = "library_header_content") {
+                            item(key = "library_header_content", contentType = CONTENT_TYPE_HEADER) {
                                 headerContent()
                             }
                         }
 
                         metadata.sections.forEach { section ->
-                            item(key = "header_${section.letter}") {
+                            item(key = "header_${section.letter}", contentType = CONTENT_TYPE_HEADER) {
                                 Surface(
                                     color = MaterialTheme.colorScheme.background.copy(alpha = 0.94f),
                                     modifier = Modifier.fillMaxWidth(),
@@ -307,6 +361,7 @@ fun SongsTab(
                             itemsIndexed(
                                 items = section.songs,
                                 key = { _, song -> song.id },
+                                contentType = { _, _ -> CONTENT_TYPE_ROW },
                             ) { index, song ->
                                 SongItem(
                                     song = song,
@@ -314,8 +369,7 @@ fun SongsTab(
                                     onSongClick = { onSongClick(song) },
                                     onFavoriteClick = { onFavoriteClick(song.id) },
                                     isScrolling = false,
-                                    modifier = Modifier
-                                        .padding(horizontal = adaptivePadding)
+                                    modifier = songRowModifier
                                         .animateListEntry(index, delay = 15),
                                 )
                             }
@@ -354,7 +408,7 @@ private fun FastScrollOverlay(
     val currentVisibleLetter by remember(metadata, listState) {
         derivedStateOf {
             val visibleSongLazyIndex = listState.layoutInfo.visibleItemsInfo
-                .firstOrNull { item -> item.index in metadata.songIndexToLazyIndex }
+                .firstOrNull { item -> item.index in metadata.songLazyIndexLookup }
                 ?.index
                 ?: listState.firstVisibleItemIndex.coerceIn(0, (metadata.totalLazyItems - 1).coerceAtLeast(0))
 
@@ -385,7 +439,7 @@ private fun FastScrollOverlay(
     }
 
     val visibleItemsCount by remember(listState, metadata) {
-        derivedStateOf { listState.layoutInfo.visibleItemsInfo.count { it.index in metadata.songIndexToLazyIndex }.coerceAtLeast(1) }
+        derivedStateOf { listState.layoutInfo.visibleItemsInfo.count { it.index in metadata.songLazyIndexLookup }.coerceAtLeast(1) }
     }
 
     val thumbHeightPx by remember(overlayHeightPx, visibleItemsCount, metadata.totalSongItems, density) {

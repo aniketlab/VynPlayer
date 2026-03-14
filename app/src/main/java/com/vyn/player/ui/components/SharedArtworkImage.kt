@@ -57,8 +57,36 @@ object ArtworkModelCache {
     }
 }
 
+private object ArtworkRequestCache {
+    private val requests = object : LruCache<String, ImageRequest>(256) {}
+
+    fun getOrPut(key: String, builder: () -> ImageRequest): ImageRequest {
+        synchronized(this) {
+            requests.get(key)?.let { return it }
+            return builder().also { requests.put(key, it) }
+        }
+    }
+}
+
 // Tracks in-flight extractions so we don't double-launch for the same song
 private val inFlightKeys = ConcurrentHashMap.newKeySet<String>()
+
+private fun Song.artworkIdentityKey(thumbnailMode: Boolean): String {
+    val mode = if (thumbnailMode) "thumb" else "full"
+    return when {
+        artworkUrl != null -> "artworkUrl:$artworkUrl:$mode"
+        folderPath.isNotBlank() -> "folder:$folderPath:$album:$artist:$mode"
+        path.isNotBlank() -> "path:$path:$mode"
+        else -> "song:$id:$mode"
+    }
+}
+
+private fun artworkModelIdentity(model: Any?): String = when (model) {
+    is File -> "file:${model.absolutePath}"
+    is ByteArray -> "bytes:${model.size}:${model.contentHashCode()}"
+    null -> "none"
+    else -> model.toString()
+}
 
 /**
  * Extract artwork for a song — pure background, never blocks UI.
@@ -166,20 +194,23 @@ fun SharedArtworkImage(
 ) {
     val artworkRepository = LocalArtworkRepository.current
     val context = LocalContext.current
+    val artworkIdentityKey = remember(song?.id, song?.path, song?.artworkUrl, song?.folderPath, thumbnailMode) {
+        song?.artworkIdentityKey(thumbnailMode)
+    }
 
     // ── 1. Synchronous memory-cache read (no coroutine, no delay) ──────────
-    val initialModel = remember(song?.id) {
+    val initialModel = remember(artworkIdentityKey, song?.path) {
         if (song == null) return@remember null
         val cached = ArtworkModelCache.cache.get(song.path)
         if (cached != null && cached !== "NONE") cached else null
     }
 
     // ── 2. Async state — only updated in background coroutine ──────────────
-    var activeModel by remember(song?.id) { mutableStateOf<Any?>(initialModel) }
+    var activeModel by remember(artworkIdentityKey) { mutableStateOf<Any?>(initialModel) }
 
     // Launch exactly ONE background extraction per song (keyed by song.id).
     // This coroutine is cancelled automatically when the composable leaves composition.
-    LaunchedEffect(song?.id) {
+    LaunchedEffect(artworkIdentityKey) {
         if (song == null) return@LaunchedEffect
         // If we already have it, nothing to do
         if (activeModel != null) return@LaunchedEffect
@@ -201,7 +232,7 @@ fun SharedArtworkImage(
 
     // ── 4. Fallback gradient ───────────────────────────────────────────────
     val isDark = isSystemInDarkTheme()
-    val placeholderBrush = fallbackBrush ?: remember(song?.id, isDark) {
+    val placeholderBrush = fallbackBrush ?: remember(song?.id, song?.title, song?.artist, isDark) {
         val hash = (song?.title?.hashCode() ?: 0) + (song?.artist?.hashCode() ?: 0)
         val hue = (hash % 360).toFloat().absoluteValue
         if (isDark) {
@@ -260,23 +291,30 @@ fun SharedArtworkImage(
 
             // Real artwork overlaid on top with crossfade
             if (activeModel != null) {
-                val request = remember(activeModel, thumbnailMode, song?.id) {
-                    val builder = ImageRequest.Builder(context)
-                        .data(activeModel)
-                        .size(if (thumbnailMode) 256 else 512)
-                        .crossfade(150)
-                        .bitmapConfig(
-                            if (thumbnailMode) android.graphics.Bitmap.Config.RGB_565
-                            else android.graphics.Bitmap.Config.ARGB_8888
-                        )
-                        .allowHardware(!thumbnailMode)
-                        .diskCachePolicy(coil.request.CachePolicy.ENABLED)
-                        .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
-
-                    if (song != null && song.album.isNotBlank() && !song.album.equals("unknown", ignoreCase = true)) {
-                        builder.memoryCacheKey("${song.album}_${song.artist}_${if (thumbnailMode) "thumb" else "full"}")
+                val request = remember(artworkIdentityKey, activeModel, thumbnailMode, song?.album, song?.artist) {
+                    val requestKey = buildString {
+                        append(artworkIdentityKey ?: "song:null")
+                        append('|')
+                        append(artworkModelIdentity(activeModel))
                     }
-                    builder.build()
+                    ArtworkRequestCache.getOrPut(requestKey) {
+                        val builder = ImageRequest.Builder(context)
+                            .data(activeModel)
+                            .size(if (thumbnailMode) 256 else 512)
+                            .crossfade(150)
+                            .bitmapConfig(
+                                if (thumbnailMode) android.graphics.Bitmap.Config.RGB_565
+                                else android.graphics.Bitmap.Config.ARGB_8888
+                            )
+                            .allowHardware(!thumbnailMode)
+                            .diskCachePolicy(coil.request.CachePolicy.ENABLED)
+                            .memoryCachePolicy(coil.request.CachePolicy.ENABLED)
+
+                        builder.memoryCacheKey(
+                            artworkIdentityKey ?: "${song?.album}_${song?.artist}_${if (thumbnailMode) "thumb" else "full"}"
+                        )
+                        builder.build()
+                    }
                 }
                 AsyncImage(
                     model = request,
