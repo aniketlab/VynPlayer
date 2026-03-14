@@ -1,7 +1,9 @@
 package com.vyn.player.ui.screens.nowplaying
 
-import android.graphics.drawable.BitmapDrawable
+import android.graphics.Color as AndroidColor
+import androidx.collection.LruCache
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.MarqueeAnimationMode
 import androidx.compose.foundation.background
@@ -20,27 +22,31 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.drawable.toBitmap
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.palette.graphics.Palette
 import coil.ImageLoader
 import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import coil.request.SuccessResult
 import com.vyn.player.ui.components.MuzicSeekBar
 import com.vyn.player.ui.components.SharedArtworkImage
+import com.vyn.player.ui.components.extractArtworkModel
 import com.vyn.player.ui.components.bounceClick
 import com.vyn.player.ui.theme.*
 import com.vyn.player.util.MetadataUtils
@@ -48,9 +54,93 @@ import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.constraintlayout.compose.Dimension
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import androidx.compose.ui.util.lerp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.util.lerp
+import coil.request.ImageRequest
+import com.vyn.player.data.model.Song
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
+
+private data class DynamicArtworkBackgroundPalette(
+    val dominant: Color,
+    val accent: Color
+)
+
+private fun Color.adjustForNowPlayingBackground(): Color {
+    val hsv = FloatArray(3)
+    AndroidColor.colorToHSV(this.toArgb(), hsv)
+    hsv[1] = (hsv[1] * 0.88f).coerceIn(0f, 1f)
+    hsv[2] = (hsv[2] * 0.84f).coerceIn(0f, 1f)
+    return Color(AndroidColor.HSVToColor(hsv))
+}
+
+private object NowPlayingPaletteCache {
+    private val cache = object : LruCache<String, DynamicArtworkBackgroundPalette>(100) {}
+    private val emptyKeys = ConcurrentHashMap.newKeySet<String>()
+
+    fun get(key: String): DynamicArtworkBackgroundPalette? = cache.get(key)
+    fun put(key: String, palette: DynamicArtworkBackgroundPalette) {
+        cache.put(key, palette)
+        emptyKeys.remove(key)
+    }
+
+    fun markEmpty(key: String) {
+        emptyKeys.add(key)
+        cache.remove(key)
+    }
+
+    fun isMarkedEmpty(key: String): Boolean = emptyKeys.contains(key)
+}
+
+private suspend fun extractNowPlayingPalette(
+    song: Song,
+    context: android.content.Context,
+    imageLoader: ImageLoader
+): DynamicArtworkBackgroundPalette? = withContext(Dispatchers.Default) {
+    val cacheKey = song.artworkUrl ?: song.path.ifBlank { song.id.toString() }
+    NowPlayingPaletteCache.get(cacheKey)?.let { return@withContext it }
+    if (NowPlayingPaletteCache.isMarkedEmpty(cacheKey)) return@withContext null
+
+    val artworkModel = extractArtworkModel(song, context, thumbnailMode = false) ?: run {
+        NowPlayingPaletteCache.markEmpty(cacheKey)
+        return@withContext null
+    }
+
+    val request = ImageRequest.Builder(context)
+        .data(artworkModel)
+        .allowHardware(false)
+        .size(512)
+        .build()
+
+    val result = imageLoader.execute(request) as? SuccessResult ?: run {
+        NowPlayingPaletteCache.markEmpty(cacheKey)
+        return@withContext null
+    }
+
+    val bitmap = result.drawable.toBitmap(config = android.graphics.Bitmap.Config.ARGB_8888)
+    val palette = Palette.from(bitmap).clearFilters().generate()
+    val vibrant = palette.getVibrantColor(0)
+    val darkVibrant = palette.getDarkVibrantColor(0)
+    val muted = palette.getMutedColor(0)
+    val darkMuted = palette.getDarkMutedColor(0)
+    val dominant = palette.getDominantColor(0)
+
+    val topColorArgb = listOf(vibrant, darkVibrant, muted, dominant).firstOrNull { it != 0 } ?: run {
+        NowPlayingPaletteCache.markEmpty(cacheKey)
+        return@withContext null
+    }
+    val accentArgb = listOf(darkVibrant, darkMuted, muted, dominant).firstOrNull { it != 0 } ?: topColorArgb
+
+    val adjustedTopColor = Color(topColorArgb).adjustForNowPlayingBackground()
+    val adjustedAccentColor = Color(accentArgb).adjustForNowPlayingBackground()
+
+    return@withContext DynamicArtworkBackgroundPalette(
+        dominant = adjustedTopColor,
+        accent = adjustedAccentColor
+    ).also { NowPlayingPaletteCache.put(cacheKey, it) }
+}
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -96,6 +186,61 @@ fun NowPlayingContent(
 ) {
     val song = playbackState.currentSong
     var showDetails by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val imageLoader = remember(context) { ImageLoader(context) }
+
+    var dynamicPalette by remember(song?.id) { mutableStateOf<DynamicArtworkBackgroundPalette?>(null) }
+    var activePaletteKey by remember { mutableStateOf<String?>(null) }
+    var backgroundArtworkModel by remember(song?.id) { mutableStateOf<Any?>(null) }
+    val rippleProgress = remember { Animatable(1f) }
+
+    LaunchedEffect(song?.id) {
+        if (song == null) {
+            dynamicPalette = null
+            backgroundArtworkModel = null
+            activePaletteKey = null
+            return@LaunchedEffect
+        }
+        val paletteKey = song.artworkUrl ?: song.path.ifBlank { song.id.toString() }
+        if (activePaletteKey == paletteKey && dynamicPalette != null && backgroundArtworkModel != null) return@LaunchedEffect
+
+        delay(250)
+        val artworkModel = extractArtworkModel(song, context, thumbnailMode = false)
+        if (artworkModel == null) {
+            activePaletteKey = null
+            backgroundArtworkModel = null
+            dynamicPalette = null
+            return@LaunchedEffect
+        }
+        val extractedPalette = extractNowPlayingPalette(song, context, imageLoader)
+        if (extractedPalette != null) {
+            activePaletteKey = paletteKey
+            backgroundArtworkModel = artworkModel
+            dynamicPalette = extractedPalette
+            rippleProgress.snapTo(0f)
+            rippleProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing)
+            )
+        } else {
+            activePaletteKey = null
+            backgroundArtworkModel = null
+            dynamicPalette = null
+        }
+    }
+
+    val defaultBackground = MaterialTheme.colorScheme.background
+    val dynamicBackgroundEnabled = dynamicPalette != null && backgroundArtworkModel != null
+    val animatedTopColor by animateColorAsState(
+        targetValue = dynamicPalette?.dominant?.copy(alpha = 0.36f) ?: defaultBackground,
+        animationSpec = tween(durationMillis = 1400, easing = FastOutSlowInEasing),
+        label = "nowPlayingDynamicTopColor"
+    )
+    val animatedAccentColor by animateColorAsState(
+        targetValue = dynamicPalette?.accent?.copy(alpha = 0.18f) ?: defaultBackground,
+        animationSpec = tween(durationMillis = 1400, easing = FastOutSlowInEasing),
+        label = "nowPlayingDynamicAccentColor"
+    )
 
     // ─── Clean metadata ───
     val cleanTitle = remember(song?.title) {
@@ -124,7 +269,71 @@ fun NowPlayingContent(
         val screenHeight = maxHeight
         val screenWidth = maxWidth
         val adaptivePadding = getAdaptivePadding()
+        val density = LocalDensity.current
         val artSize = (screenWidth.value * 0.7f).coerceAtMost(screenHeight.value * 0.42f).toFloat().dp
+        val rippleRadius = remember(screenWidth, screenHeight, rippleProgress.value) {
+            val minRadius = minOf(screenWidth.value, screenHeight.value) * 0.18f
+            val maxRadius = maxOf(screenWidth.value, screenHeight.value) * 1.05f
+            lerp(minRadius, maxRadius, rippleProgress.value).dp
+        }
+        val rippleColor = animatedTopColor.copy(alpha = (1f - rippleProgress.value) * 0.22f)
+        val rippleRadiusPx = with(density) { rippleRadius.toPx() }
+        val backgroundGradient = remember(animatedTopColor, animatedAccentColor, defaultBackground) {
+            Brush.verticalGradient(
+                colors = listOf(animatedTopColor, animatedAccentColor, defaultBackground)
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(defaultBackground)
+        )
+
+        if (dynamicBackgroundEnabled) {
+            AsyncImage(
+                model = remember(backgroundArtworkModel) {
+                    ImageRequest.Builder(context)
+                        .data(backgroundArtworkModel)
+                        .allowHardware(false)
+                        .crossfade(false)
+                        .size(768)
+                        .build()
+                },
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .matchParentSize()
+                    .blur(52.dp)
+                    .graphicsLayer { alpha = 0.23f }
+            )
+
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(backgroundGradient)
+            )
+
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(
+                                rippleColor,
+                                rippleColor.copy(alpha = rippleColor.alpha * 0.45f),
+                                Color.Transparent
+                            ),
+                            center = androidx.compose.ui.geometry.Offset(
+                                x = constraints.maxWidth / 2f,
+                                y = constraints.maxHeight / 2f
+                            ),
+                            radius = rippleRadiusPx,
+                            tileMode = TileMode.Clamp
+                        )
+                    )
+            )
+        }
 
         ConstraintLayout(
             modifier = Modifier
