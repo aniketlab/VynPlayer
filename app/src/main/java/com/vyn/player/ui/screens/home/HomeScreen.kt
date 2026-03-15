@@ -40,7 +40,8 @@ fun HomeScreen(
     onNavigateToSearch: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToArtist: (String) -> Unit,
-    onNavigateToLibrary: () -> Unit = {},
+    onNavigateToFolders: () -> Unit = {},
+    onNavigateToArtists: () -> Unit = {},
     onNavigateToFavorites: () -> Unit = {},
     onNavigateToPlaylists: () -> Unit = {},
     onNavigateToSmartMix: () -> Unit = {},
@@ -193,7 +194,7 @@ fun HomeScreen(
                     FilterPill(
                         label = "Folders",
                         icon = Icons.Rounded.Folder,
-                        onClick = onNavigateToLibrary
+                        onClick = onNavigateToFolders
                     )
                 }
                 item {
@@ -214,7 +215,7 @@ fun HomeScreen(
                     FilterPill(
                         label = "Artists",
                         icon = Icons.Rounded.Person,
-                        onClick = onNavigateToLibrary
+                        onClick = onNavigateToArtists
                     )
                 }
             }

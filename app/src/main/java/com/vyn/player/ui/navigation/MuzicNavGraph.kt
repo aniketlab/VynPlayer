@@ -65,7 +65,8 @@ fun MuzicNavGraph(
                 onNavigateToArtist = { artistName: String ->
                     navController.navigate(Screen.ArtistDetail.createRoute(artistName))
                 },
-                onNavigateToLibrary = { navController.navigate(Screen.Library.route) },
+                onNavigateToFolders = { navController.navigate(Screen.AllFolders.route) },
+                onNavigateToArtists = { navController.navigate(Screen.AllArtists.route) },
                 onNavigateToFavorites = { navController.navigate(Screen.Favorites.route) },
                 onNavigateToPlaylists = { navController.navigate("playlists") },
                 onNavigateToSmartMix = { navController.navigate(Screen.SmartMix.route) },

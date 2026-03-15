@@ -10,9 +10,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,7 +54,7 @@ private fun SeeAllTopBar(
     ) {
         IconButton(onClick = onBack) {
             Icon(
-                Icons.Rounded.ArrowBack,
+                Icons.AutoMirrored.Rounded.ArrowBack,
                 contentDescription = "Back",
                 tint = MaterialTheme.colorScheme.onSurface
             )
@@ -74,6 +76,53 @@ private fun SeeAllTopBar(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun SectionSearchBar(
+    query: String,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    onQueryChange: (String) -> Unit
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            Icons.Rounded.Search,
+            contentDescription = "Search",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.width(12.dp))
+        TextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = {
+                Text(
+                    text = placeholder,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 15.sp
+                )
+            },
+            singleLine = true,
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = Color.Transparent,
+                unfocusedContainerColor = Color.Transparent,
+                disabledContainerColor = Color.Transparent,
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+                disabledIndicatorColor = Color.Transparent,
+                cursorColor = MaterialTheme.colorScheme.primary
+            )
+        )
     }
 }
 
@@ -138,7 +187,10 @@ fun AllArtistsScreen(
     viewModel: LibraryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val artists = uiState.artists
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    val artists = remember(uiState.artists, searchQuery) {
+        uiState.artists.filter { it.name.contains(searchQuery, ignoreCase = true) }
+    }
 
     Column(
         modifier = Modifier
@@ -151,10 +203,17 @@ fun AllArtistsScreen(
             onBack = onNavigateBack
         )
 
+        SectionSearchBar(
+            query = searchQuery,
+            placeholder = "Search artists",
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            onQueryChange = { searchQuery = it }
+        )
+
         if (artists.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    "No artists found.",
+                    if (searchQuery.isBlank()) "No artists found." else "No matching artists found.",
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 )
             }
@@ -240,7 +299,10 @@ fun AllAlbumsScreen(
     viewModel: LibraryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val albums = uiState.albums
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    val albums = remember(uiState.albums, searchQuery) {
+        uiState.albums.filter { it.name.contains(searchQuery, ignoreCase = true) }
+    }
 
     Column(
         modifier = Modifier
@@ -253,10 +315,17 @@ fun AllAlbumsScreen(
             onBack = onNavigateBack
         )
 
+        SectionSearchBar(
+            query = searchQuery,
+            placeholder = "Search albums",
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            onQueryChange = { searchQuery = it }
+        )
+
         if (albums.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    "No albums found.",
+                    if (searchQuery.isBlank()) "No albums found." else "No matching albums found.",
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 )
             }
@@ -339,7 +408,10 @@ fun AllFoldersScreen(
     viewModel: LibraryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val folders = uiState.folders
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    val folders = remember(uiState.folders, searchQuery) {
+        uiState.folders.filter { it.name.contains(searchQuery, ignoreCase = true) }
+    }
 
     Column(
         modifier = Modifier
@@ -352,10 +424,17 @@ fun AllFoldersScreen(
             onBack = onNavigateBack
         )
 
+        SectionSearchBar(
+            query = searchQuery,
+            placeholder = "Search folders",
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            onQueryChange = { searchQuery = it }
+        )
+
         if (folders.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    "No folders found.",
+                    if (searchQuery.isBlank()) "No folders found." else "No matching folders found.",
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 )
             }
