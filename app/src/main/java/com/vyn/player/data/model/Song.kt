@@ -23,6 +23,9 @@ data class Song(
     val artworkUrl: String? = null,
     val artistImageUrl: String? = null
 ) {
+    val isExternalSource: Boolean
+        get() = id < 0L || path.isBlank()
+
     val albumArtUri: Uri
         get() = Uri.parse("content://media/external/audio/albumart/$albumId")
 }

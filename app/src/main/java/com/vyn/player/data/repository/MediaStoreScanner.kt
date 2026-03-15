@@ -117,14 +117,9 @@ class MediaStoreScanner @Inject constructor(
 
                 while (cursor.moveToNext()) {
                     val path = cursor.getString(dataColumn) ?: continue
-                    val normalizedPath = path.replace('\\', '/').lowercase()
+                    val normalizedPath = path.replace('\\', '/').lowercase().trim()
                     val file = File(path)
                     val fileName = file.nameWithoutExtension
-
-                    // ─── Deduplicate by File Path ───
-                    if (!seenPaths.add(path)) {
-                        continue // Skip duplicate entry
-                    }
 
                     val rawTitle = cursor.getString(titleColumn)
                     val rawArtist = cursor.getString(artistColumn)
@@ -177,6 +172,14 @@ class MediaStoreScanner @Inject constructor(
                     val finalAlbum = MetadataUtils.sanitize(cleanAlbum, MetadataType.ALBUM)
 
                     val contentUri = ContentUris.withAppendedId(audioUri, id)
+                    val dedupeKey = normalizedPath.ifBlank {
+                        contentUri.toString().lowercase().trim()
+                    }
+
+                    // ─── Deduplicate after existing filters using normalized path, fallback URI ───
+                    if (!seenPaths.add(dedupeKey)) {
+                        continue
+                    }
 
                     songs.add(
                         Song(

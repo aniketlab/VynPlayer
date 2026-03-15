@@ -84,6 +84,9 @@ class PlaybackManager @Inject constructor(
     private var maxPositionPlayed: Long = 0L
     private var wasManuallySkipped: Boolean = false
     private var currentHistoryId: Long = 0L
+    private var savedLibraryQueueSnapshot: List<Song>? = null
+    private var savedLibraryQueueIndex: Int = -1
+    private var hasTemporaryExternalQueue: Boolean = false
 
     val player: Player?
         get() = exoPlayer
@@ -256,6 +259,7 @@ class PlaybackManager @Inject constructor(
     }
 
     fun playQueue(songs: List<Song>, startIndex: Int = 0) {
+        hasTemporaryExternalQueue = false
         queueManager.setQueue(songs, startIndex)
         val startSong = queueManager.currentSong ?: return
 
@@ -275,6 +279,34 @@ class PlaybackManager @Inject constructor(
         }
     }
 
+    fun playTemporaryQueue(songs: List<Song>, startIndex: Int = 0) {
+        if (songs.isEmpty()) return
+
+        if (!hasTemporaryExternalQueue) {
+            savedLibraryQueueSnapshot = _playbackState.value.queue.takeIf { it.isNotEmpty() }
+            savedLibraryQueueIndex = _playbackState.value.currentIndex
+        }
+
+        hasTemporaryExternalQueue = true
+        queueManager.setQueue(songs, startIndex)
+        val startSong = queueManager.currentSong ?: return
+
+        val player = initializePlayer()
+        val mediaItems = songs.map { buildMediaItem(it) }
+        player.setMediaItems(mediaItems, startIndex, 0L)
+        player.prepare()
+        player.play()
+
+        updateState {
+            it.copy(
+                currentSong = startSong,
+                isPlaying = true,
+                queue = songs,
+                currentIndex = startIndex,
+            )
+        }
+    }
+
     fun play() {
         exoPlayer?.play()
         updateState { it.copy(isPlaying = true) }
@@ -287,6 +319,7 @@ class PlaybackManager @Inject constructor(
 
     fun stop() {
         exoPlayer?.stop()
+        hasTemporaryExternalQueue = false
         updateState { PlaybackState() }
     }
 
@@ -486,6 +519,10 @@ class PlaybackManager @Inject constructor(
                     }
                 }
                 Player.STATE_ENDED -> {
+                    if (hasTemporaryExternalQueue) {
+                        restoreLibraryQueueAfterExternalPlayback()
+                        return
+                    }
                     // Handled by repeat mode
                     // If queue ended and not repeating, auto-continue playback
                     if (exoPlayer?.hasNextMediaItem() != true && _playbackState.value.repeatMode != RepeatMode.ALL) {
@@ -540,8 +577,44 @@ class PlaybackManager @Inject constructor(
         }
 
         override fun onPlayerError(error: PlaybackException) {
+            if (hasTemporaryExternalQueue) {
+                restoreLibraryQueueAfterExternalPlayback()
+                return
+            }
             // Skip to next on error
             skipToNext()
+        }
+    }
+
+    private fun restoreLibraryQueueAfterExternalPlayback() {
+        val savedQueue = savedLibraryQueueSnapshot
+        val savedIndex = savedLibraryQueueIndex
+
+        hasTemporaryExternalQueue = false
+        savedLibraryQueueSnapshot = null
+        savedLibraryQueueIndex = -1
+
+        if (savedQueue.isNullOrEmpty()) {
+            exoPlayer?.stop()
+            updateState { PlaybackState() }
+            return
+        }
+
+        val restoredIndex = savedIndex.coerceIn(0, savedQueue.lastIndex)
+        queueManager.setQueue(savedQueue, restoredIndex)
+        val player = initializePlayer()
+        player.setMediaItems(savedQueue.map { buildMediaItem(it) }, restoredIndex, 0L)
+        player.prepare()
+        player.pause()
+
+        updateState {
+            it.copy(
+                currentSong = savedQueue.getOrNull(restoredIndex),
+                isPlaying = false,
+                queue = savedQueue,
+                currentIndex = restoredIndex,
+                currentPosition = 0L,
+            )
         }
     }
 

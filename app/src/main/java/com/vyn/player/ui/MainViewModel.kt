@@ -32,6 +32,9 @@ class MainViewModel @Inject constructor(
     private val _isPlayerExpanded = MutableStateFlow(false)
     val isPlayerExpanded = _isPlayerExpanded.asStateFlow()
 
+    private val _isQueueScreenVisible = MutableStateFlow(false)
+    val isQueueScreenVisible = _isQueueScreenVisible.asStateFlow()
+
     private val _isFavorite = MutableStateFlow(false)
     val isFavorite = _isFavorite.asStateFlow()
 
@@ -70,8 +73,14 @@ class MainViewModel @Inject constructor(
     fun setPlayerExpanded(expanded: Boolean) {
         if (expanded) {
             playbackState.value.currentSong?.let { preloadArtwork(it) }
+        } else {
+            _isQueueScreenVisible.value = false
         }
         _isPlayerExpanded.value = expanded
+    }
+
+    fun setQueueScreenVisible(visible: Boolean) {
+        _isQueueScreenVisible.value = visible
     }
 
     fun toggleFavorite() {

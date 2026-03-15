@@ -2,8 +2,6 @@ package com.vyn.player.ui.screens.settings
 
 import android.content.Context
 import android.content.Intent
-import android.media.audiofx.AudioEffect
-import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,8 +21,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -39,12 +39,12 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
 
     var showAboutDialog by remember { mutableStateOf(false) }
     var showPrivacyDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
-    var showComingSoonDialog by remember { mutableStateOf(false) }
-    var comingSoonFeature by remember { mutableStateOf("") }
+    var showAudioEnhancementDialog by remember { mutableStateOf(false) }
     
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
 
@@ -100,7 +100,6 @@ fun SettingsScreen(
                             subtitle = if (uiState.isScanning) "Scanning for new music..." else if (uiState.scanMessage.isNotEmpty()) uiState.scanMessage else "Scan device for new music",
                             onClick = {
                                 viewModel.rescanLibrary()
-                                Toast.makeText(context, "🔄 Scanning library...", Toast.LENGTH_SHORT).show()
                             }
                         )
                     }
@@ -116,7 +115,7 @@ fun SettingsScreen(
                             iconTint = MaterialTheme.colorScheme.primary,
                             title = "Equalizer",
                             subtitle = "Adjust audio frequencies",
-                            onClick = { openSystemEqualizer(context) }
+                            onClick = { showAudioEnhancementDialog = true }
                         )
                         SettingsDivider()
                         SettingsItem(
@@ -124,10 +123,7 @@ fun SettingsScreen(
                             iconTint = MaterialTheme.colorScheme.primary,
                             title = "Bass Boost",
                             subtitle = "Enhance low frequencies",
-                            onClick = {
-                                comingSoonFeature = "Bass Boost"
-                                showComingSoonDialog = true
-                            }
+                            onClick = { showAudioEnhancementDialog = true }
                         )
                         SettingsDivider()
                         SettingsItem(
@@ -135,10 +131,7 @@ fun SettingsScreen(
                             iconTint = MaterialTheme.colorScheme.tertiary,
                             title = "Virtualizer",
                             subtitle = "3D surround sound effect",
-                            onClick = {
-                                comingSoonFeature = "Virtualizer"
-                                showComingSoonDialog = true
-                            }
+                            onClick = { showAudioEnhancementDialog = true }
                         )
                     }
                 }
@@ -171,7 +164,7 @@ fun SettingsScreen(
                             icon = Icons.Rounded.Info,
                             iconTint = MaterialTheme.colorScheme.primary,
                             title = "About VYN PLAYER",
-                            subtitle = "Version 2.1.0 • No Ads • Pure Music",
+                            subtitle = "Version 1.0 • No Ads • Pure Music",
                             onClick = { showAboutDialog = true }
                         )
                         SettingsDivider()
@@ -249,7 +242,7 @@ fun SettingsScreen(
                     )
 
                     Text(
-                        text = "Version 2.1.0",
+                        text = "Version 1.0",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
@@ -286,10 +279,14 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
                     )
                     Text(
-                        text = "officialtechrom",
+                        text = "Aniket Sharma",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
+                        textDecoration = TextDecoration.Underline,
+                        modifier = Modifier.clickable {
+                            uriHandler.openUri("https://github.com/aniketlab")
+                        }
                     )
                 }
             },
@@ -308,33 +305,29 @@ fun SettingsScreen(
             containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(20.dp),
             title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Rounded.Shield,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(28.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        "Your Privacy is Safe",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                Text(
+                    "Privacy & Data Policy",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold
+                )
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    PrivacyItem("🚫", "No Internet Access", "VYN PLAYER has no internet permission. Your data never leaves your device.")
-                    PrivacyItem("🔒", "No Data Collection", "We don't collect, store, or share any personal information.")
-                    PrivacyItem("📵", "No Ads or Trackers", "Zero advertising SDKs. Zero analytics. Zero tracking.")
-                    PrivacyItem("🎵", "Music Stays Local", "Your music files are read directly from your device storage.")
-                    PrivacyItem("✅", "100% Offline", "VYN PLAYER works completely without internet. Always.")
+                    Text(
+                        text = "VYN PLAYER is designed as a completely offline music experience.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
+                    )
+                    PrivacyPolicySection("Internet Access", "This application does not require internet permission. Your device never sends music data outside your phone.")
+                    PrivacyPolicySection("Data Collection", "VYN PLAYER does not collect, store, or transmit any personal data.")
+                    PrivacyPolicySection("Advertising", "This application contains no advertisements and integrates no analytics or tracking frameworks.")
+                    PrivacyPolicySection("Local Playback", "All audio files are played directly from your device storage.")
+                    PrivacyPolicySection("Offline First", "The player is designed to function entirely offline with zero background network activity.")
                 }
             },
             confirmButton = {
                 TextButton(onClick = { showPrivacyDialog = false }) {
-                    Text("Got it!", color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.Bold)
+                    Text("Got it", color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -386,14 +379,14 @@ fun SettingsScreen(
         )
     }
 
-    // ─── COMING SOON DIALOG ───
-    if (showComingSoonDialog) {
+    // ─── AUDIO ENHANCEMENTS DIALOG ───
+    if (showAudioEnhancementDialog) {
         AlertDialog(
-            onDismissRequest = { showComingSoonDialog = false },
+            onDismissRequest = { showAudioEnhancementDialog = false },
             containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(20.dp),
             title = {
-                Text(comingSoonFeature, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                Text("Audio Enhancements", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
             },
             text = {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
@@ -405,14 +398,14 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "$comingSoonFeature will be available in the next update!",
+                        text = "Advanced audio enhancements such as Equalizer, Bass Boost, and Virtualizer will be available in the next major update.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                         textAlign = TextAlign.Center
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Stay tuned for V2 🎵",
+                        text = "Stay tuned for V2",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
@@ -420,27 +413,11 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showComingSoonDialog = false }) {
+                TextButton(onClick = { showAudioEnhancementDialog = false }) {
                     Text("OK", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             }
         )
-    }
-}
-
-// ─── System Equalizer ───
-private fun openSystemEqualizer(context: Context) {
-    try {
-        val intent = Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL)
-        intent.putExtra(AudioEffect.EXTRA_AUDIO_SESSION, 0)
-        intent.putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
-        if (intent.resolveActivity(context.packageManager) != null) {
-            context.startActivity(intent)
-        } else {
-            Toast.makeText(context, "No equalizer app found on this device", Toast.LENGTH_SHORT).show()
-        }
-    } catch (e: Exception) {
-        Toast.makeText(context, "Could not open equalizer", Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -555,23 +532,19 @@ private fun FeatureBadge(text: String, color: androidx.compose.ui.graphics.Color
 }
 
 @Composable
-private fun PrivacyItem(emoji: String, title: String, description: String) {
-    Row {
-        Text(emoji, fontSize = 20.sp)
-        Spacer(modifier = Modifier.width(12.dp))
-        Column {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-            )
-        }
+private fun PrivacyPolicySection(title: String, description: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+        )
     }
 }
 

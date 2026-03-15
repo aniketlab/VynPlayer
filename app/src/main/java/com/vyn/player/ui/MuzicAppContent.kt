@@ -43,6 +43,7 @@ import com.vyn.player.ui.navigation.MuzicNavGraph
 import com.vyn.player.ui.navigation.Screen
 import com.vyn.player.ui.actions.LocalSongActionDispatcher
 import com.vyn.player.ui.screens.nowplaying.NowPlayingContent
+import com.vyn.player.ui.screens.nowplaying.QueueScreen
 import com.vyn.player.ui.screens.nowplaying.SongDetailsDialog
 import com.vyn.player.ui.theme.*
 import android.app.Activity
@@ -64,6 +65,7 @@ fun MuzicAppContent(
     val playbackState by viewModel.playbackState.collectAsStateWithLifecycle()
     val selectedSong by viewModel.selectedSong.collectAsStateWithLifecycle()
     val showSongDetails by viewModel.showSongDetails.collectAsStateWithLifecycle()
+    val isQueueScreenVisible by viewModel.isQueueScreenVisible.collectAsStateWithLifecycle()
     val hazeState = remember { HazeState() }
     val context = LocalContext.current
     val activity = context as? Activity
@@ -273,6 +275,7 @@ fun MuzicAppContent(
                         currentPosition = playbackProgress.currentPosition,
                         isFavorite = currentIsFav,
                         onNavigateBack = { viewModel.setPlayerExpanded(false) },
+                        onOpenQueue = { viewModel.setQueueScreenVisible(true) },
                         onTogglePlayPause = { viewModel.togglePlayPause() },
                         onSkipToNext = { viewModel.skipToNext() },
                         onSkipToPrevious = { viewModel.skipToPrevious() },
@@ -281,6 +284,24 @@ fun MuzicAppContent(
                         onCycleRepeatMode = { viewModel.cycleRepeatMode() },
                         onToggleShuffle = { viewModel.toggleShuffle() },
                         expansionProgress = expansionProgress
+                    )
+                }
+            }
+
+            if (isPlayerExpanded && isQueueScreenVisible) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .zIndex(11f)
+                        .background(MaterialTheme.colorScheme.background)
+                ) {
+                    BackHandler(enabled = true) {
+                        viewModel.setQueueScreenVisible(false)
+                    }
+
+                    QueueScreen(
+                        playbackState = playbackState,
+                        onNavigateBack = { viewModel.setQueueScreenVisible(false) }
                     )
                 }
             }

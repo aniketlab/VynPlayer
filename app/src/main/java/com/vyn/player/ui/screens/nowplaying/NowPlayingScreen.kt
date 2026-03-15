@@ -161,6 +161,7 @@ fun NowPlayingScreen(
         currentPosition = currentPosition,
         isFavorite = isFavorite,
         onNavigateBack = onNavigateBack,
+        onOpenQueue = {},
         onTogglePlayPause = { viewModel.togglePlayPause() },
         onSkipToNext = { viewModel.skipToNext() },
         onSkipToPrevious = { viewModel.skipToPrevious() },
@@ -178,6 +179,7 @@ fun NowPlayingContent(
     currentPosition: Long,
     isFavorite: Boolean,
     onNavigateBack: () -> Unit,
+    onOpenQueue: () -> Unit,
     onTogglePlayPause: () -> Unit,
     onSkipToNext: () -> Unit,
     onSkipToPrevious: () -> Unit,
@@ -192,6 +194,7 @@ fun NowPlayingContent(
     val onSongAction = LocalSongActionDispatcher.current
     val context = LocalContext.current
     val imageLoader = remember(context) { ImageLoader(context) }
+    var showLyricsDialog by remember { mutableStateOf(false) }
 
     var dynamicPalette by remember(song?.id) { mutableStateOf<DynamicArtworkBackgroundPalette?>(null) }
     var activePaletteKey by remember { mutableStateOf<String?>(null) }
@@ -598,13 +601,24 @@ fun NowPlayingContent(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         ActionItem(
+                            icon = Icons.AutoMirrored.Rounded.QueueMusic,
+                            label = "QUEUE",
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            onClick = onOpenQueue
+                        )
+                        ActionItem(
                             icon = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                             label = if (isFavorite) "LIKED" else "LIKE",
                             color = if (isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                            onClick = onToggleFavorite
+                            onClick = onToggleFavorite,
+                            pressedScale = 0.9f
                         )
-                        ActionItem(icon = Icons.AutoMirrored.Rounded.QueueMusic, label = "QUEUE", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-                        ActionItem(icon = Icons.Rounded.Lyrics, label = "LYRICS", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                        ActionItem(
+                            icon = Icons.Rounded.Lyrics,
+                            label = "LYRICS",
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            onClick = { showLyricsDialog = true }
+                        )
                         ActionItem(
                             icon = Icons.Rounded.Share,
                             label = "SHARE",
@@ -625,6 +639,53 @@ fun NowPlayingContent(
                 }
             }
         }
+    }
+
+    if (showLyricsDialog) {
+        AlertDialog(
+            onDismissRequest = { showLyricsDialog = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(20.dp),
+            title = {
+                Text(
+                    text = "Lyrics",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Lyrics,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Lyrics support is currently under development and will be available in a future update.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Coming soon in V2",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showLyricsDialog = false }) {
+                    Text("OK", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
     }
 }
 
