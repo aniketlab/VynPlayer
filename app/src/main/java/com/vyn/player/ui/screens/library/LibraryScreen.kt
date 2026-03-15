@@ -188,6 +188,7 @@ fun LibraryScreen(
                         songs = uiState.displayedSongs,
                         isLoading = uiState.isLoading,
                         currentSongId = playbackState.currentSong?.id,
+                        isPlaybackActive = playbackState.isPlaying,
                         onSongClick = { song -> viewModel.playSong(song, uiState.displayedSongs) },
                         onFavoriteClick = { songId -> viewModel.toggleFavorite(songId) },
                         headerContent = {

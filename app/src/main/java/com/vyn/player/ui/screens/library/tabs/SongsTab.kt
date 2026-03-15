@@ -271,6 +271,7 @@ fun SongsTab(
     songs: List<Song>,
     isLoading: Boolean,
     currentSongId: Long?,
+    isPlaybackActive: Boolean = currentSongId != null,
     onSongClick: (Song) -> Unit,
     onFavoriteClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
@@ -366,6 +367,7 @@ fun SongsTab(
                                 SongItem(
                                     song = song,
                                     isPlaying = song.id == currentSongId,
+                                    isPlaybackActive = isPlaybackActive,
                                     onSongClick = { onSongClick(song) },
                                     onFavoriteClick = { onFavoriteClick(song.id) },
                                     isScrolling = false,

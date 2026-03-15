@@ -129,6 +129,7 @@ fun PlaylistDetailScreen(
                     SongItem(
                         song = song,
                         isPlaying = playbackState.currentSong?.id == song.id,
+                        isPlaybackActive = playbackState.isPlaying,
                         onSongClick = { viewModel.playSong(song, playlistSongs) },
                         onFavoriteClick = { viewModel.toggleFavorite(song.id) },
                         modifier = Modifier.animateListEntry(index)

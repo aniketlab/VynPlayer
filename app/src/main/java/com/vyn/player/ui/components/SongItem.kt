@@ -1,6 +1,11 @@
 package com.vyn.player.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -37,6 +42,7 @@ import com.vyn.player.ui.MainViewModel
 fun SongItem(
     song: Song,
     isPlaying: Boolean,
+    isPlaybackActive: Boolean = isPlaying,
     onSongClick: () -> Unit,
     onFavoriteClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -88,11 +94,10 @@ fun SongItem(
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Equalizer,
-                        contentDescription = "Playing",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
+                    NowPlayingIndicator(
+                        isAnimating = isPlaybackActive,
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -143,6 +148,64 @@ fun SongItem(
             onDismissRequest = { showActionSheet = false },
             onFavoriteClick = onFavoriteClick
         )
+    }
+}
+
+@Composable
+private fun NowPlayingIndicator(
+    isAnimating: Boolean,
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.primary
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "nowPlayingIndicator")
+    val firstBar by infiniteTransition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 560, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "firstBar"
+    )
+    val secondBar by infiniteTransition.animateFloat(
+        initialValue = 0.55f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 640, easing = LinearEasing, delayMillis = 90),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "secondBar"
+    )
+    val thirdBar by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 600, easing = LinearEasing, delayMillis = 180),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "thirdBar"
+    )
+
+    val barHeights = if (isAnimating) {
+        listOf(firstBar, secondBar, thirdBar)
+    } else {
+        listOf(0.45f, 0.8f, 0.6f)
+    }
+
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.Bottom
+    ) {
+        barHeights.forEach { heightFraction ->
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .fillMaxHeight(heightFraction)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(color)
+            )
+        }
     }
 }
 

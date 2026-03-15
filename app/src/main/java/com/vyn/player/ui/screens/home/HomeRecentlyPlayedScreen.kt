@@ -78,6 +78,7 @@ fun HomeRecentlyPlayedScreen(
                     SongItem(
                         song = song,
                         isPlaying = playbackState.currentSong?.id == song.id,
+                        isPlaybackActive = playbackState.isPlaying,
                         onSongClick = { viewModel.playSong(song, recentSongs) },
                         onFavoriteClick = { viewModel.toggleFavorite(song.id) }
                     )

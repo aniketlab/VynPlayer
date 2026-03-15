@@ -1,6 +1,7 @@
 package com.vyn.player.ui.screens.discover
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -34,6 +35,7 @@ import com.vyn.player.ui.components.SongItem
 import com.vyn.player.ui.components.bounceClick
 import com.vyn.player.ui.screens.library.LibraryViewModel
 import kotlin.math.absoluteValue
+import kotlin.text.Regex
 
 // ═══════════════════════════════════════════════════════════════
 // Top bar used by all "See All" screens
@@ -166,6 +168,7 @@ fun AllRecentlyAddedScreen(
                     SongItem(
                         song = song,
                         isPlaying = playbackState.currentSong?.id == song.id,
+                        isPlaybackActive = playbackState.isPlaying,
                         onSongClick = { viewModel.playSong(song, recentlyAdded) },
                         onFavoriteClick = { viewModel.toggleFavorite(song.id) },
                         modifier = Modifier.padding(horizontal = 16.dp)
@@ -189,7 +192,14 @@ fun AllArtistsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var searchQuery by rememberSaveable { mutableStateOf("") }
     val artists = remember(uiState.artists, searchQuery) {
-        uiState.artists.filter { it.name.contains(searchQuery, ignoreCase = true) }
+        uiState.artists
+            .toStructuredArtists()
+            .filter { it.name.contains(searchQuery, ignoreCase = true) }
+    }
+    val groupedArtists = remember(artists) {
+        artists.groupBy { artist ->
+            artist.name.firstOrNull()?.uppercaseChar()?.takeIf { it.isLetter() } ?: '#'
+        }.toSortedMap()
     }
 
     Column(
@@ -219,14 +229,87 @@ fun AllArtistsScreen(
             }
         } else {
             LazyColumn(contentPadding = PaddingValues(bottom = 144.dp)) {
-                items(artists, key = { it.id }) { artist ->
-                    ArtistListItem(
-                        artist = artist,
-                        onClick = { onNavigateToArtist(artist.name) }
-                    )
+                groupedArtists.forEach { (letter, artistsInSection) ->
+                    item(key = "header_$letter") {
+                        ArtistSectionHeader(letter = letter.toString())
+                    }
+                    items(artistsInSection, key = { it.id }) { artist ->
+                        ArtistListItem(
+                            artist = artist,
+                            onClick = { onNavigateToArtist(artist.name) }
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+private fun List<Artist>.toStructuredArtists(): List<Artist> {
+    return groupBy { artist -> artist.name.normalizedArtistKey() }
+        .map { (normalizedKey, groupedArtists) ->
+            val firstArtist = groupedArtists.first()
+            val displayName = if (normalizedKey == UNKNOWN_ARTIST_KEY) "Unknown Artist" else firstArtist.name.trim()
+            Artist(
+                id = groupedArtists.minOf { it.id },
+                name = displayName,
+                songCount = groupedArtists.sumOf { it.songCount },
+                albumCount = groupedArtists.sumOf { it.albumCount }
+            )
+        }
+        .filter { artist -> artist.shouldDisplayArtist() }
+        .sortedBy { it.name.lowercase() }
+}
+
+private fun String.normalizedArtistKey(): String {
+    val normalized = trim().lowercase()
+    return if (normalized.isBlank() || normalized == "unknown artist" || normalized == "<unknown>" || normalized == "unknown") {
+        UNKNOWN_ARTIST_KEY
+    } else {
+        normalized
+    }
+}
+
+private const val UNKNOWN_ARTIST_KEY = "__unknown_artist__"
+private val INVALID_NUMERIC_ARTIST_REGEX = Regex("^\\d+$")
+private val INVALID_FILENAME_ARTIST_REGEX = Regex("^\\d+(?:[\\s_].*|[a-zA-Z].*)?$", RegexOption.IGNORE_CASE)
+
+private fun Artist.shouldDisplayArtist(): Boolean {
+    if (name == "Unknown Artist") return true
+
+    val trimmedName = name.trim()
+    if (trimmedName.isBlank()) return false
+
+    if (INVALID_NUMERIC_ARTIST_REGEX.matches(trimmedName)) return false
+    if (INVALID_FILENAME_ARTIST_REGEX.matches(trimmedName)) return false
+
+    if (trimmedName.length < 2) {
+        val onlyLetters = trimmedName.all { it.isLetter() }
+        if (!onlyLetters) return false
+    }
+
+    return true
+}
+
+@Composable
+private fun ArtistSectionHeader(letter: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = letter,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        HorizontalDivider(
+            modifier = Modifier.weight(1f),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+        )
     }
 }
 
@@ -241,13 +324,21 @@ private fun ArtistListItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f))
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f),
+                shape = RoundedCornerShape(16.dp)
+            )
             .bounceClick(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Circle avatar
         Surface(
-            modifier = Modifier.size(48.dp),
+            modifier = Modifier.size(52.dp),
             shape = CircleShape,
             color = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.5f, 0.5f)))
         ) {

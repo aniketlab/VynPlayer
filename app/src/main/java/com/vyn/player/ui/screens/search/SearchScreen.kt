@@ -159,6 +159,7 @@ fun SearchScreen(
                         SongItem(
                             song = song,
                             isPlaying = playbackState.currentSong?.id == song.id,
+                            isPlaybackActive = playbackState.isPlaying,
                             onSongClick = { viewModel.playSong(song, filteredSongs) },
                             onFavoriteClick = { viewModel.toggleFavorite(song.id) },
                             modifier = Modifier.animateListEntry(index)
@@ -190,6 +191,7 @@ fun SearchScreen(
                     SongItem(
                         song = song,
                         isPlaying = playbackState.currentSong?.id == song.id,
+                        isPlaybackActive = playbackState.isPlaying,
                         onSongClick = { viewModel.playSong(song, suggestions) },
                         onFavoriteClick = { viewModel.toggleFavorite(song.id) },
                         modifier = Modifier.animateListEntry(index)

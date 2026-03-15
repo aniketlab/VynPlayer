@@ -152,6 +152,7 @@ fun ArtistDetailScreen(
                     SongItem(
                         song = song,
                         isPlaying = playbackState.currentSong?.id == song.id,
+                        isPlaybackActive = playbackState.isPlaying,
                         onSongClick = { viewModel.playSong(song, artistSongs) },
                         onFavoriteClick = { viewModel.toggleFavorite(song.id) },
                         isScrolling = listState.isScrollInProgress,

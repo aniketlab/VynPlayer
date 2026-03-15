@@ -187,6 +187,7 @@ fun FolderDetailScreen(
                     SongItem(
                         song = song,
                         isPlaying = playbackState.currentSong?.id == song.id,
+                        isPlaybackActive = playbackState.isPlaying,
                         onSongClick = { viewModel.playSong(song, folderSongs) },
                         onFavoriteClick = { viewModel.toggleFavorite(song.id) },
                         modifier = Modifier.padding(horizontal = 16.dp)
