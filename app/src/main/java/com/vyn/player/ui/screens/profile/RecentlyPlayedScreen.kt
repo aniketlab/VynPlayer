@@ -22,6 +22,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.vyn.player.data.model.Song
+import com.vyn.player.ui.actions.LocalSongActionDispatcher
+import com.vyn.player.ui.actions.SongAction
 import com.vyn.player.ui.screens.library.LibraryViewModel
 import com.vyn.player.ui.components.MuzicImage
 import com.vyn.player.ui.components.SongItem
@@ -34,6 +36,7 @@ fun RecentlyPlayedScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val playbackState by viewModel.playbackState.collectAsStateWithLifecycle()
+    val songActionDispatcher = LocalSongActionDispatcher.current
 
     val recentSongs = uiState.recentSongs
 
@@ -97,8 +100,8 @@ fun RecentlyPlayedScreen(
                         song = song,
                         isPlaying = playbackState.currentSong?.id == song.id,
                         isPlaybackActive = playbackState.isPlaying,
-                        onSongClick = { viewModel.playSong(song, recentSongs) },
-                        onFavoriteClick = { viewModel.toggleFavorite(song.id) },
+                        onSongClick = { songActionDispatcher(SongAction.Play(song, recentSongs)) },
+                        onAction = songActionDispatcher,
                         modifier = Modifier.padding(horizontal = adaptivePadding)
                     )
                 }

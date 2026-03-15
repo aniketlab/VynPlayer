@@ -59,6 +59,8 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.util.lerp
 import coil.request.ImageRequest
 import com.vyn.player.data.model.Song
+import com.vyn.player.ui.actions.LocalSongActionDispatcher
+import com.vyn.player.ui.actions.SongAction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
@@ -185,7 +187,7 @@ fun NowPlayingContent(
     expansionProgress: Float = 1.0f 
 ) {
     val song = playbackState.currentSong
-    var showDetails by remember { mutableStateOf(false) }
+    val onSongAction = LocalSongActionDispatcher.current
     val context = LocalContext.current
     val imageLoader = remember(context) { ImageLoader(context) }
 
@@ -601,16 +603,26 @@ fun NowPlayingContent(
                         )
                         ActionItem(icon = Icons.AutoMirrored.Rounded.QueueMusic, label = "QUEUE", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                         ActionItem(icon = Icons.Rounded.Lyrics, label = "LYRICS", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-                        ActionItem(icon = Icons.Rounded.Share, label = "SHARE", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-                        ActionItem(icon = Icons.Rounded.Info, label = "DETAILS", onClick = { showDetails = true }, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                        ActionItem(
+                            icon = Icons.Rounded.Share,
+                            label = "SHARE",
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            onClick = {
+                                song?.let { onSongAction(SongAction.Share(it)) }
+                            }
+                        )
+                        ActionItem(
+                            icon = Icons.Rounded.Info,
+                            label = "DETAILS",
+                            onClick = {
+                                song?.let { onSongAction(SongAction.ShowDetails(it)) }
+                            },
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
                     }
                 }
             }
         }
-    }
-
-    if (showDetails && song != null) {
-        SongDetailsDialog(song = song) { showDetails = false }
     }
 }
 

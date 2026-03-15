@@ -30,6 +30,8 @@ import com.vyn.player.ui.theme.*
 import com.vyn.player.ui.components.MuzicImage
 import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.launch
+import com.vyn.player.ui.actions.LocalSongActionDispatcher
+import com.vyn.player.ui.actions.SongAction
 
 @Composable
 fun PlaylistDetailScreen(
@@ -39,6 +41,7 @@ fun PlaylistDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val playbackState by viewModel.playbackState.collectAsStateWithLifecycle()
+    val songActionDispatcher = LocalSongActionDispatcher.current
     
     var playlistSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
     var playlistName by remember { mutableStateOf("Playlist") }
@@ -130,8 +133,8 @@ fun PlaylistDetailScreen(
                         song = song,
                         isPlaying = playbackState.currentSong?.id == song.id,
                         isPlaybackActive = playbackState.isPlaying,
-                        onSongClick = { viewModel.playSong(song, playlistSongs) },
-                        onFavoriteClick = { viewModel.toggleFavorite(song.id) },
+                        onSongClick = { songActionDispatcher(SongAction.Play(song, playlistSongs)) },
+                        onAction = songActionDispatcher,
                         modifier = Modifier.animateListEntry(index)
                     )
                 }

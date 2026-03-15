@@ -29,6 +29,8 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vyn.player.ui.actions.LocalSongActionDispatcher
+import com.vyn.player.ui.actions.SongAction
 import com.vyn.player.ui.navigation.Screen
 import com.vyn.player.ui.screens.library.tabs.SongsTab
 import com.vyn.player.ui.theme.*
@@ -76,6 +78,7 @@ fun LibraryScreen(
     }
 
     val adaptivePadding = getAdaptivePadding()
+    val songActionDispatcher = LocalSongActionDispatcher.current
     var showSortMenu by remember { mutableStateOf(false) }
     val sortOptions = remember {
         listOf(
@@ -189,8 +192,8 @@ fun LibraryScreen(
                         isLoading = uiState.isLoading,
                         currentSongId = playbackState.currentSong?.id,
                         isPlaybackActive = playbackState.isPlaying,
-                        onSongClick = { song -> viewModel.playSong(song, uiState.displayedSongs) },
-                        onFavoriteClick = { songId -> viewModel.toggleFavorite(songId) },
+                        onSongClick = { song -> songActionDispatcher(SongAction.Play(song, uiState.displayedSongs)) },
+                        onSongAction = songActionDispatcher,
                         headerContent = {
                             Column(
                                 modifier = Modifier

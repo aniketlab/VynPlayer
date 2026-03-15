@@ -27,15 +27,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.vyn.player.data.model.Song
+import com.vyn.player.ui.actions.SongAction
 import com.vyn.player.ui.theme.*
 import com.vyn.player.util.TimeUtils
-import android.content.Intent
-import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.ui.platform.LocalContext
-import androidx.hilt.navigation.compose.hiltViewModel
-import com.vyn.player.ui.MainViewModel
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -44,7 +39,7 @@ fun SongItem(
     isPlaying: Boolean,
     isPlaybackActive: Boolean = isPlaying,
     onSongClick: () -> Unit,
-    onFavoriteClick: () -> Unit,
+    onAction: (SongAction) -> Unit,
     modifier: Modifier = Modifier,
     isScrolling: Boolean = false
 ) {
@@ -146,7 +141,7 @@ fun SongItem(
         SongActionSheet(
             song = song,
             onDismissRequest = { showActionSheet = false },
-            onFavoriteClick = onFavoriteClick
+            onAction = onAction
         )
     }
 }
@@ -214,12 +209,10 @@ private fun NowPlayingIndicator(
 fun SongActionSheet(
     song: Song,
     onDismissRequest: () -> Unit,
-    onFavoriteClick: () -> Unit
+    onAction: (SongAction) -> Unit
 ) {
-    val context = LocalContext.current
-    val mainViewModel: MainViewModel = hiltViewModel()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    
+
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
@@ -268,28 +261,23 @@ fun SongActionSheet(
             Spacer(modifier = Modifier.height(12.dp))
 
             ActionSheetItem(icon = Icons.Rounded.QueueMusic, label = "Play next") {
-                mainViewModel.playNext(song)
-                Toast.makeText(context, "Added to queue", Toast.LENGTH_SHORT).show()
+                onAction(SongAction.PlayNext(song))
                 onDismissRequest()
             }
             ActionSheetItem(icon = Icons.Rounded.PlaylistAdd, label = "Add to playlist") {
-                Toast.makeText(context, "Playlist feature coming soon", Toast.LENGTH_SHORT).show()
+                onAction(SongAction.AddToPlaylist(song))
                 onDismissRequest()
             }
             ActionSheetItem(icon = if (song.isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, label = if (song.isFavorite) "Remove from favorites" else "Add to favorites") {
-                onFavoriteClick()
+                onAction(SongAction.ToggleFavorite(song))
                 onDismissRequest()
             }
             ActionSheetItem(icon = Icons.Rounded.Share, label = "Share") {
-                val intent = Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, "Listen to ${song.title} by ${song.artist}")
-                }
-                context.startActivity(Intent.createChooser(intent, "Share song"))
+                onAction(SongAction.Share(song))
                 onDismissRequest()
             }
             ActionSheetItem(icon = Icons.Rounded.Info, label = "Song details") {
-                Toast.makeText(context, "Location: ${song.uri}", Toast.LENGTH_LONG).show()
+                onAction(SongAction.ShowDetails(song))
                 onDismissRequest()
             }
         }

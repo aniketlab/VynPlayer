@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vyn.player.ui.actions.LocalSongActionDispatcher
+import com.vyn.player.ui.actions.SongAction
 import com.vyn.player.ui.components.SongItem
 import com.vyn.player.ui.components.bounceClick
 import com.vyn.player.ui.screens.library.LibraryViewModel
@@ -35,6 +37,7 @@ fun FolderDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val playbackState by viewModel.playbackState.collectAsStateWithLifecycle()
+    val songActionDispatcher = LocalSongActionDispatcher.current
 
     val folderName = remember(folderPath) {
         File(folderPath).name
@@ -188,8 +191,8 @@ fun FolderDetailScreen(
                         song = song,
                         isPlaying = playbackState.currentSong?.id == song.id,
                         isPlaybackActive = playbackState.isPlaying,
-                        onSongClick = { viewModel.playSong(song, folderSongs) },
-                        onFavoriteClick = { viewModel.toggleFavorite(song.id) },
+                        onSongClick = { songActionDispatcher(SongAction.Play(song, folderSongs)) },
+                        onAction = songActionDispatcher,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
                 }

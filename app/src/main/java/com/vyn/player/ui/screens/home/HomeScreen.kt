@@ -29,6 +29,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vyn.player.ui.components.bounceClick
 import com.vyn.player.data.model.*
+import com.vyn.player.ui.actions.LocalSongActionDispatcher
 import com.vyn.player.ui.screens.library.LibraryViewModel
 import com.vyn.player.ui.components.*
 import com.vyn.player.ui.theme.*
@@ -399,6 +400,7 @@ fun FilterPill(label: String, icon: ImageVector, onClick: () -> Unit) {
 @Composable
 fun SquareSongCard(song: Song, onClick: () -> Unit, modifier: Modifier = Modifier) {
     var showActionSheet by remember { mutableStateOf(false) }
+    val songActionDispatcher = LocalSongActionDispatcher.current
     
     Column(
         modifier = modifier
@@ -437,11 +439,10 @@ fun SquareSongCard(song: Song, onClick: () -> Unit, modifier: Modifier = Modifie
     }
 
     if (showActionSheet) {
-        val viewModel: LibraryViewModel = hiltViewModel()
         SongActionSheet(
             song = song,
             onDismissRequest = { showActionSheet = false },
-            onFavoriteClick = { viewModel.toggleFavorite(song.id) }
+            onAction = songActionDispatcher
         )
     }
 }
@@ -450,6 +451,7 @@ fun SquareSongCard(song: Song, onClick: () -> Unit, modifier: Modifier = Modifie
 @Composable
 fun LocalTrackItem(song: Song, onClick: () -> Unit, modifier: Modifier = Modifier) {
     var showActionSheet by remember { mutableStateOf(false) }
+    val songActionDispatcher = LocalSongActionDispatcher.current
     
     val bitRate = if (song.duration > 0) (song.size * 8000L) / song.duration else 0L
     val badgeText = when {
@@ -516,11 +518,10 @@ fun LocalTrackItem(song: Song, onClick: () -> Unit, modifier: Modifier = Modifie
     }
 
     if (showActionSheet) {
-        val viewModel: LibraryViewModel = hiltViewModel()
         SongActionSheet(
             song = song,
             onDismissRequest = { showActionSheet = false },
-            onFavoriteClick = { viewModel.toggleFavorite(song.id) }
+            onAction = songActionDispatcher
         )
     }
 }

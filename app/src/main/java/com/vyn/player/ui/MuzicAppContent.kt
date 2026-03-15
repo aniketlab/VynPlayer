@@ -1,16 +1,12 @@
 package com.vyn.player.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -39,22 +35,20 @@ import dev.chrisbanes.haze.hazeChild
 import dev.chrisbanes.haze.HazeStyle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.compose.ui.graphics.toArgb
 import com.vyn.player.ui.components.MiniPlayer
 import com.vyn.player.ui.navigation.BottomNavScreens
 import com.vyn.player.ui.navigation.MuzicNavGraph
 import com.vyn.player.ui.navigation.Screen
+import com.vyn.player.ui.actions.LocalSongActionDispatcher
 import com.vyn.player.ui.screens.nowplaying.NowPlayingContent
+import com.vyn.player.ui.screens.nowplaying.SongDetailsDialog
 import com.vyn.player.ui.theme.*
 import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.IntOffset
-import kotlin.math.roundToInt
 
 @Composable
 fun MuzicAppContent(
@@ -68,6 +62,8 @@ fun MuzicAppContent(
     val showBottomNav = currentDestination?.route != null && currentDestination.route !in hiddenRoutes
     val playbackProgress by viewModel.playbackProgress.collectAsStateWithLifecycle()
     val playbackState by viewModel.playbackState.collectAsStateWithLifecycle()
+    val selectedSong by viewModel.selectedSong.collectAsStateWithLifecycle()
+    val showSongDetails by viewModel.showSongDetails.collectAsStateWithLifecycle()
     val hazeState = remember { HazeState() }
     val context = LocalContext.current
     val activity = context as? Activity
@@ -86,7 +82,9 @@ fun MuzicAppContent(
         derivedStateOf { playbackProgress.currentTrack != null }
     }
 
-
+    CompositionLocalProvider(
+        LocalSongActionDispatcher provides viewModel::handleSongAction
+    ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
@@ -286,6 +284,14 @@ fun MuzicAppContent(
                     )
                 }
             }
+
+            if (showSongDetails && selectedSong != null) {
+                SongDetailsDialog(
+                    song = selectedSong!!,
+                    onDismiss = viewModel::dismissSongDetails
+                )
+            }
         }
+    }
     }
 }

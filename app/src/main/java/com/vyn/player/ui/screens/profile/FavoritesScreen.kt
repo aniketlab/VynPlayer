@@ -22,6 +22,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.vyn.player.data.model.Song
+import com.vyn.player.ui.actions.LocalSongActionDispatcher
+import com.vyn.player.ui.actions.SongAction
 import com.vyn.player.ui.screens.library.LibraryViewModel
 import com.vyn.player.ui.theme.*
 import com.vyn.player.ui.components.SongItem
@@ -34,6 +36,7 @@ fun FavoritesScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val playbackState by viewModel.playbackState.collectAsStateWithLifecycle()
+    val songActionDispatcher = LocalSongActionDispatcher.current
 
     val favoriteSongs = remember(uiState.songs) {
         uiState.songs.filter { it.isFavorite }
@@ -99,8 +102,8 @@ fun FavoritesScreen(
                         song = song,
                         isPlaying = playbackState.currentSong?.id == song.id,
                         isPlaybackActive = playbackState.isPlaying,
-                        onSongClick = { viewModel.playSong(song, favoriteSongs) },
-                        onFavoriteClick = { viewModel.toggleFavorite(song.id) },
+                        onSongClick = { songActionDispatcher(SongAction.Play(song, favoriteSongs)) },
+                        onAction = songActionDispatcher,
                         modifier = Modifier.padding(horizontal = adaptivePadding)
                     )
                 }

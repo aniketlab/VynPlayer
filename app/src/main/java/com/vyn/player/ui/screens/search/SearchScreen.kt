@@ -25,6 +25,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vyn.player.ui.actions.LocalSongActionDispatcher
+import com.vyn.player.ui.actions.SongAction
 import com.vyn.player.ui.components.SongItem
 import com.vyn.player.ui.screens.library.LibraryViewModel
 import com.vyn.player.ui.theme.*
@@ -41,6 +43,7 @@ fun SearchScreen(
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val playbackState by viewModel.playbackState.collectAsStateWithLifecycle()
+    val songActionDispatcher = LocalSongActionDispatcher.current
 
     val suggestions = remember(uiState.topSongs, uiState.recentSongs, uiState.songs) {
         val topIds = uiState.topSongs.map { it.songId }.toSet()
@@ -160,8 +163,8 @@ fun SearchScreen(
                             song = song,
                             isPlaying = playbackState.currentSong?.id == song.id,
                             isPlaybackActive = playbackState.isPlaying,
-                            onSongClick = { viewModel.playSong(song, filteredSongs) },
-                            onFavoriteClick = { viewModel.toggleFavorite(song.id) },
+                            onSongClick = { songActionDispatcher(SongAction.Play(song, filteredSongs)) },
+                            onAction = songActionDispatcher,
                             modifier = Modifier.animateListEntry(index)
                         )
                     }
@@ -192,8 +195,8 @@ fun SearchScreen(
                         song = song,
                         isPlaying = playbackState.currentSong?.id == song.id,
                         isPlaybackActive = playbackState.isPlaying,
-                        onSongClick = { viewModel.playSong(song, suggestions) },
-                        onFavoriteClick = { viewModel.toggleFavorite(song.id) },
+                        onSongClick = { songActionDispatcher(SongAction.Play(song, suggestions)) },
+                        onAction = songActionDispatcher,
                         modifier = Modifier.animateListEntry(index)
                     )
                 }

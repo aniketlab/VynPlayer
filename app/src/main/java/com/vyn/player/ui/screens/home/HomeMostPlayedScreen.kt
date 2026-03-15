@@ -16,6 +16,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vyn.player.ui.actions.LocalSongActionDispatcher
+import com.vyn.player.ui.actions.SongAction
 import com.vyn.player.ui.components.SongItem
 import com.vyn.player.ui.screens.library.LibraryViewModel
 import com.vyn.player.ui.theme.getAdaptivePadding
@@ -27,6 +29,7 @@ fun HomeMostPlayedScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val playbackState by viewModel.playbackState.collectAsStateWithLifecycle()
+    val songActionDispatcher = LocalSongActionDispatcher.current
 
     val mostPlayedIds = uiState.topSongs.map { it.songId }
     val mostPlayedSongs = mostPlayedIds.mapNotNull { id -> uiState.songs.find { it.id == id } }.take(20)
@@ -80,8 +83,8 @@ fun HomeMostPlayedScreen(
                         song = song,
                         isPlaying = playbackState.currentSong?.id == song.id,
                         isPlaybackActive = playbackState.isPlaying,
-                        onSongClick = { viewModel.playSong(song, mostPlayedSongs) },
-                        onFavoriteClick = { viewModel.toggleFavorite(song.id) }
+                        onSongClick = { songActionDispatcher(SongAction.Play(song, mostPlayedSongs)) },
+                        onAction = songActionDispatcher
                     )
                 }
             }

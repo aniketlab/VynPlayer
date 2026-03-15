@@ -31,6 +31,8 @@ import com.vyn.player.data.model.Album
 import com.vyn.player.data.model.Artist
 import com.vyn.player.data.model.Folder
 import com.vyn.player.data.model.Song
+import com.vyn.player.ui.actions.LocalSongActionDispatcher
+import com.vyn.player.ui.actions.SongAction
 import com.vyn.player.ui.components.SongItem
 import com.vyn.player.ui.components.bounceClick
 import com.vyn.player.ui.screens.library.LibraryViewModel
@@ -139,6 +141,7 @@ fun AllRecentlyAddedScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val playbackState by viewModel.playbackState.collectAsStateWithLifecycle()
+    val songActionDispatcher = LocalSongActionDispatcher.current
 
     val recentlyAdded = remember(uiState.songs) {
         uiState.songs.sortedByDescending { it.dateAdded }
@@ -169,8 +172,8 @@ fun AllRecentlyAddedScreen(
                         song = song,
                         isPlaying = playbackState.currentSong?.id == song.id,
                         isPlaybackActive = playbackState.isPlaying,
-                        onSongClick = { viewModel.playSong(song, recentlyAdded) },
-                        onFavoriteClick = { viewModel.toggleFavorite(song.id) },
+                        onSongClick = { songActionDispatcher(SongAction.Play(song, recentlyAdded)) },
+                        onAction = songActionDispatcher,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
                 }

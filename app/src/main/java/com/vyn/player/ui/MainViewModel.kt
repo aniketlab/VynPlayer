@@ -7,6 +7,8 @@ import coil.imageLoader
 import coil.request.ImageRequest
 import com.vyn.player.data.model.Song
 import com.vyn.player.player.PlaybackManager
+import com.vyn.player.ui.actions.SongAction
+import com.vyn.player.ui.actions.SongActionHandler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,6 +24,7 @@ import javax.inject.Inject
 class MainViewModel @Inject constructor(
     private val playbackManager: PlaybackManager,
     private val musicRepository: com.vyn.player.data.repository.MusicRepository,
+    private val songActionHandler: SongActionHandler,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -30,6 +33,9 @@ class MainViewModel @Inject constructor(
 
     private val _isFavorite = MutableStateFlow(false)
     val isFavorite = _isFavorite.asStateFlow()
+
+    val selectedSong = songActionHandler.selectedSong
+    val showSongDetails = songActionHandler.showSongDetails
 
     init {
         observeCurrentSong()
@@ -49,6 +55,8 @@ class MainViewModel @Inject constructor(
     }
 
     private fun preloadArtwork(song: Song) {
+        if (song.isExternalSource) return
+
         val request = ImageRequest.Builder(context)
             .data(song.albumArtUri)
             .size(512)
@@ -69,6 +77,14 @@ class MainViewModel @Inject constructor(
                 musicRepository.toggleFavorite(song.id)
             }
         }
+    }
+
+    fun handleSongAction(action: SongAction) {
+        songActionHandler.handle(action)
+    }
+
+    fun dismissSongDetails() {
+        songActionHandler.dismissSongDetails()
     }
 
     private val _scrollToTopRequest = MutableSharedFlow<String>()

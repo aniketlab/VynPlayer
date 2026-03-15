@@ -68,6 +68,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.vyn.player.data.model.Song
+import com.vyn.player.ui.actions.SongAction
 import com.vyn.player.ui.components.LocalArtworkRepository
 import com.vyn.player.ui.components.SongItem
 import com.vyn.player.ui.components.animateListEntry
@@ -273,7 +274,7 @@ fun SongsTab(
     currentSongId: Long?,
     isPlaybackActive: Boolean = currentSongId != null,
     onSongClick: (Song) -> Unit,
-    onFavoriteClick: (Long) -> Unit,
+    onSongAction: (SongAction) -> Unit,
     modifier: Modifier = Modifier,
     headerContent: (@Composable () -> Unit)? = null,
     listState: LazyListState = rememberLazyListState(),
@@ -369,7 +370,7 @@ fun SongsTab(
                                     isPlaying = song.id == currentSongId,
                                     isPlaybackActive = isPlaybackActive,
                                     onSongClick = { onSongClick(song) },
-                                    onFavoriteClick = { onFavoriteClick(song.id) },
+                                    onAction = onSongAction,
                                     isScrolling = false,
                                     modifier = songRowModifier
                                         .animateListEntry(index, delay = 15),
