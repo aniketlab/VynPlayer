@@ -26,6 +26,11 @@ import com.vyn.player.data.local.entity.PlaybackHistoryEntity
 import android.util.Log
 import java.util.concurrent.atomic.AtomicBoolean
 
+private const val UNKNOWN_ARTIST_DISPLAY_NAME = "Unknown Artist"
+private val INVALID_NUMERIC_ARTIST_REGEX = Regex("^\\d+$")
+private val INVALID_FILENAME_ARTIST_REGEX = Regex("^\\d+(?:[\\s_].*|[a-zA-Z].*)?$", RegexOption.IGNORE_CASE)
+private val FEATURE_SEPARATOR_REGEX = Regex("""\s+(?:ft\.?|feat\.?|featuring)\s+""", RegexOption.IGNORE_CASE)
+
 @OptIn(kotlinx.coroutines.FlowPreview::class)
 @Singleton
 class MusicRepository @Inject constructor(
@@ -151,10 +156,15 @@ class MusicRepository @Inject constructor(
     }.flowOn(Dispatchers.IO)
 
     fun getAllArtists(): Flow<List<Artist>> = getAllSongs().map { songs ->
-        val artists = songs.groupBy { it.artist }.map { (name, artistSongs) ->
+        val artists = songs.groupBy { it.artist.normalizedArtistGroupingKey() }.map { (normalizedKey, artistSongs) ->
+            val displayName = artistSongs
+                .map { it.artist.cleanArtistDisplayName() }
+                .firstOrNull { it != UNKNOWN_ARTIST_DISPLAY_NAME }
+                ?: UNKNOWN_ARTIST_DISPLAY_NAME
+
             Artist(
-                id = name.hashCode().toLong(),
-                name = name,
+                id = normalizedKey.hashCode().toLong(),
+                name = displayName,
                 songCount = artistSongs.size,
                 albumCount = artistSongs.map { it.albumId }.distinct().size
             )
@@ -176,7 +186,8 @@ class MusicRepository @Inject constructor(
 
     suspend fun getSongsForArtist(artistName: String): List<Song> = withContext(Dispatchers.IO) {
         val allSongs = cachedSongs ?: mediaStoreScanner.scanAllSongs().also { cachedSongs = it }
-        allSongs.filter { it.artist.equals(artistName, ignoreCase = true) }
+        val targetKey = artistName.normalizedArtistGroupingKey()
+        allSongs.filter { it.artist.normalizedArtistGroupingKey() == targetKey }
     }
 
     suspend fun getSongsInFolder(folderPath: String): List<Song> = withContext(Dispatchers.IO) {
@@ -353,4 +364,27 @@ class MusicRepository @Inject constructor(
     }
 
     suspend fun getAllSongStats() = songStatsDao.getAllStats()
+}
+
+private fun String.cleanArtistDisplayName(): String {
+    val trimmed = trim()
+    if (trimmed.isBlank()) return UNKNOWN_ARTIST_DISPLAY_NAME
+    if (INVALID_NUMERIC_ARTIST_REGEX.matches(trimmed)) return UNKNOWN_ARTIST_DISPLAY_NAME
+    if (INVALID_FILENAME_ARTIST_REGEX.matches(trimmed)) return UNKNOWN_ARTIST_DISPLAY_NAME
+
+    val withoutFeature = FEATURE_SEPARATOR_REGEX.split(trimmed, limit = 2).firstOrNull().orEmpty().trim()
+    if (withoutFeature.isBlank()) return UNKNOWN_ARTIST_DISPLAY_NAME
+    if (INVALID_NUMERIC_ARTIST_REGEX.matches(withoutFeature)) return UNKNOWN_ARTIST_DISPLAY_NAME
+    if (INVALID_FILENAME_ARTIST_REGEX.matches(withoutFeature)) return UNKNOWN_ARTIST_DISPLAY_NAME
+
+    return withoutFeature
+}
+
+private fun String.normalizedArtistGroupingKey(): String {
+    val cleaned = cleanArtistDisplayName()
+    return if (cleaned == UNKNOWN_ARTIST_DISPLAY_NAME) {
+        UNKNOWN_ARTIST_DISPLAY_NAME.lowercase()
+    } else {
+        cleaned.lowercase()
+    }
 }
