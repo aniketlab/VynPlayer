@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -43,12 +44,14 @@ class MainViewModel @Inject constructor(
 
     private fun observeCurrentSong() {
         viewModelScope.launch {
-            playbackManager.playbackState.collect { state ->
+            playbackManager.playbackState.collectLatest { state ->
                 state.currentSong?.let { song ->
                     preloadArtwork(song)
-                    musicRepository.isFavorite(song.id).collect { isFav ->
+                    musicRepository.isFavorite(song.id).collectLatest { isFav ->
                         _isFavorite.value = isFav
                     }
+                } ?: run {
+                    _isFavorite.value = false
                 }
             }
         }
@@ -74,6 +77,7 @@ class MainViewModel @Inject constructor(
     fun toggleFavorite() {
         viewModelScope.launch {
             playbackManager.playbackState.value.currentSong?.let { song ->
+                _isFavorite.value = !_isFavorite.value
                 musicRepository.toggleFavorite(song.id)
             }
         }

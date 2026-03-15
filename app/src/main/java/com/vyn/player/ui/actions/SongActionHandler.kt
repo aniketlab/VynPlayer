@@ -1,6 +1,7 @@
 package com.vyn.player.ui.actions
 
 import android.content.Context
+import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -89,13 +90,14 @@ class SongActionHandler @Inject constructor(
             appendLine("🎵 ${song.title}")
             appendLine("👤 ${song.artist}")
             appendLine("💿 ${song.album}")
-            appendLine("⏱ ${TimeUtils.formatDuration(song.duration)}")
             appendLine()
             append("Shared from VYN Player")
         }
 
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "audio/*"
+            clipData = ClipData.newUri(context.contentResolver, song.title, shareUri)
+            putExtra(Intent.EXTRA_SUBJECT, song.title)
             putExtra(Intent.EXTRA_TEXT, shareText)
             putExtra(Intent.EXTRA_STREAM, shareUri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
