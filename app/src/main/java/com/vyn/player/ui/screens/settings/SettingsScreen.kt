@@ -163,7 +163,7 @@ fun SettingsScreen(
                         SettingsItem(
                             icon = Icons.Rounded.Info,
                             iconTint = MaterialTheme.colorScheme.primary,
-                            title = "About VYN PLAYER",
+                            title = "VYN PLAYER",
                             subtitle = "Version 1.0 • No Ads • Pure Music",
                             onClick = { showAboutDialog = true }
                         )
