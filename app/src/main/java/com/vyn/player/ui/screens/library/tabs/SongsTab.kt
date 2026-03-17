@@ -317,7 +317,7 @@ fun SongsTab(
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         state = listState,
-                        contentPadding = PaddingValues(top = 8.dp, bottom = 144.dp),
+                        contentPadding = PaddingValues(top = 8.dp, bottom = 144.dp, end = 12.dp),
                         flingBehavior = flingBehavior,
                     ) {
                         if (headerContent != null) {

@@ -101,13 +101,18 @@ fun SongItem(
         Spacer(modifier = Modifier.width(16.dp))
 
         // Song info
-        Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 4.dp)
+        ) {
             Text(
                 text = cleanTitle,
                 style = MaterialTheme.typography.bodyLarge,
                 color = if (isPlaying) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 fontWeight = if (isPlaying) FontWeight.Bold else FontWeight.SemiBold,
-                maxLines = 2,
+                modifier = Modifier.fillMaxWidth(),
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 fontSize = 15.sp,
                 lineHeight = 18.sp
@@ -117,6 +122,7 @@ fun SongItem(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                modifier = Modifier.fillMaxWidth(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 fontSize = 12.sp
