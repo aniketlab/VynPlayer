@@ -1,22 +1,17 @@
 package com.vyn.player.ui.screens.library.tabs
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.rememberSplineBasedDecay
 import androidx.compose.animation.core.AnimationState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDecay
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.rememberSplineBasedDecay
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.FlingBehavior
 import androidx.compose.foundation.gestures.ScrollScope
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -55,17 +50,11 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.vyn.player.data.model.Song
 import com.vyn.player.ui.actions.SongAction
@@ -74,12 +63,12 @@ import com.vyn.player.ui.components.SongItem
 import com.vyn.player.ui.components.animateListEntry
 import com.vyn.player.ui.components.extractArtworkModel
 import com.vyn.player.ui.theme.getAdaptivePadding
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.runningFold
-import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.min
 
@@ -91,7 +80,7 @@ private const val FAST_SCROLL_VELOCITY_THRESHOLD = 2.2f
 
 private data class SongSection(
     val letter: String,
-    val songs: List<Song>
+    val songs: List<Song>,
 )
 
 private data class ScrollSample(
@@ -115,9 +104,7 @@ private data class FastScrollMetadata(
     val sections: List<SongSection>,
     val songIndexToLazyIndex: List<Int>,
     val lazyIndexToSongIndex: List<Int>,
-    val lazyIndexToLetter: List<String>,
     val songLazyIndexLookup: Set<Int>,
-    val totalLazyItems: Int,
     val totalSongItems: Int,
 )
 
@@ -137,25 +124,21 @@ private fun buildFastScrollMetadata(
 
     val songIndexToLazyIndex = ArrayList<Int>(songs.size)
     val lazyIndexToSongIndex = ArrayList<Int>(songs.size + sections.size + if (hasHeaderContent) 1 else 0)
-    val lazyIndexToLetter = ArrayList<String>(songs.size + sections.size + if (hasHeaderContent) 1 else 0)
 
     var lazyIndex = 0
     if (hasHeaderContent) {
         lazyIndexToSongIndex += -1
-        lazyIndexToLetter += sections.firstOrNull()?.letter ?: "#"
         lazyIndex += 1
     }
 
     var songIndex = 0
     sections.forEach { section ->
         lazyIndexToSongIndex += -1
-        lazyIndexToLetter += section.letter
         lazyIndex += 1
 
         repeat(section.songs.size) {
             songIndexToLazyIndex += lazyIndex
             lazyIndexToSongIndex += songIndex
-            lazyIndexToLetter += section.letter
             lazyIndex += 1
             songIndex += 1
         }
@@ -165,9 +148,7 @@ private fun buildFastScrollMetadata(
         sections = sections,
         songIndexToLazyIndex = songIndexToLazyIndex,
         lazyIndexToSongIndex = lazyIndexToSongIndex,
-        lazyIndexToLetter = lazyIndexToLetter,
         songLazyIndexLookup = songIndexToLazyIndex.toHashSet(),
-        totalLazyItems = lazyIndex,
         totalSongItems = songs.size,
     )
 }
@@ -332,6 +313,7 @@ fun SongsTab(
                     val songRowModifier = remember(adaptivePadding) {
                         Modifier.padding(horizontal = adaptivePadding)
                     }
+
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         state = listState,
@@ -372,14 +354,13 @@ fun SongsTab(
                                     onSongClick = { onSongClick(song) },
                                     onAction = onSongAction,
                                     isScrolling = false,
-                                    modifier = songRowModifier
-                                        .animateListEntry(index, delay = 15),
+                                    modifier = songRowModifier.animateListEntry(index, delay = 15),
                                 )
                             }
                         }
                     }
 
-                    FastScrollOverlay(
+                    ModernScrollbarOverlay(
                         listState = listState,
                         metadata = metadata,
                         modifier = Modifier.align(Alignment.CenterEnd),
@@ -391,35 +372,18 @@ fun SongsTab(
 }
 
 @Composable
-private fun FastScrollOverlay(
+private fun ModernScrollbarOverlay(
     listState: LazyListState,
     metadata: FastScrollMetadata,
     modifier: Modifier = Modifier,
 ) {
     if (metadata.totalSongItems <= 40) return
 
-    val coroutineScope = rememberCoroutineScope()
     val density = LocalDensity.current
-    val haptics = LocalHapticFeedback.current
-
     var overlayHeightPx by remember { mutableIntStateOf(0) }
+    var isVisible by remember { mutableStateOf(false) }
     var isDragging by remember { mutableStateOf(false) }
-    var lastDraggedSongIndex by remember { mutableIntStateOf(-1) }
-    var scrollJob by remember { mutableStateOf<Job?>(null) }
-    var lastHapticLetter by remember { mutableStateOf<String?>(null) }
-
-    val currentVisibleLetter by remember(metadata, listState) {
-        derivedStateOf {
-            val visibleSongLazyIndex = listState.layoutInfo.visibleItemsInfo
-                .firstOrNull { item -> item.index in metadata.songLazyIndexLookup }
-                ?.index
-                ?: listState.firstVisibleItemIndex.coerceIn(0, (metadata.totalLazyItems - 1).coerceAtLeast(0))
-
-            metadata.lazyIndexToLetter.getOrElse(visibleSongLazyIndex) {
-                metadata.sections.firstOrNull()?.letter ?: "#"
-            }
-        }
-    }
+    val coroutineScope = rememberCoroutineScope()
 
     val currentVisibleSongIndex by remember(metadata, listState) {
         derivedStateOf {
@@ -442,34 +406,50 @@ private fun FastScrollOverlay(
     }
 
     val visibleItemsCount by remember(listState, metadata) {
-        derivedStateOf { listState.layoutInfo.visibleItemsInfo.count { it.index in metadata.songLazyIndexLookup }.coerceAtLeast(1) }
+        derivedStateOf {
+            listState.layoutInfo.visibleItemsInfo.count { it.index in metadata.songLazyIndexLookup }
+                .coerceAtLeast(1)
+        }
     }
 
     val thumbHeightPx by remember(overlayHeightPx, visibleItemsCount, metadata.totalSongItems, density) {
         derivedStateOf {
             if (overlayHeightPx == 0 || metadata.totalSongItems == 0) {
-                with(density) { 64.dp.roundToPx() }
+                with(density) { 54.dp.roundToPx() }
             } else {
                 (overlayHeightPx * (visibleItemsCount.toFloat() / metadata.totalSongItems.toFloat())).toInt()
-                    .coerceIn(with(density) { 52.dp.roundToPx() }, with(density) { 110.dp.roundToPx() })
+                    .coerceIn(with(density) { 48.dp.roundToPx() }, with(density) { 96.dp.roundToPx() })
             }
         }
     }
 
-    val thumbWidth by animateDpAsState(
-        targetValue = if (isDragging) 12.dp else 8.dp,
-        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
-        label = "fastScrollThumbWidth",
-    )
+    LaunchedEffect(listState, isDragging) {
+        if (isDragging) {
+            isVisible = true
+            return@LaunchedEffect
+        }
+        
+        snapshotFlow { listState.isScrollInProgress }
+            .distinctUntilChanged()
+            .collectLatest { scrolling ->
+                if (scrolling) {
+                    isVisible = true
+                } else {
+                    delay(800)
+                    isVisible = false
+                }
+            }
+    }
+
     val thumbAlpha by animateFloatAsState(
-        targetValue = if (isDragging) 0.9f else if (listState.isScrollInProgress) 0.55f else 0.2f,
-        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
-        label = "fastScrollThumbAlpha",
+        targetValue = if (isVisible) 0.72f else 0f,
+        animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing),
+        label = "libraryScrollbarThumbAlpha",
     )
-    val bubbleScale by animateFloatAsState(
-        targetValue = if (isDragging) 1f else 0.92f,
-        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
-        label = "fastScrollBubbleScale",
+    val trackAlpha by animateFloatAsState(
+        targetValue = if (isVisible) 0.10f else 0f,
+        animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing),
+        label = "libraryScrollbarTrackAlpha",
     )
 
     val thumbOffsetDp = with(density) {
@@ -478,115 +458,56 @@ private fun FastScrollOverlay(
     }
     val thumbHeightDp = with(density) { thumbHeightPx.toDp() }
 
-    fun dragYToSongIndex(dragY: Float): Int {
-        if (overlayHeightPx <= 0 || metadata.totalSongItems <= 0) return 0
-        val listProgress = (dragY / overlayHeightPx.toFloat()).coerceIn(0f, 1f)
-        return (listProgress * (metadata.totalSongItems - 1)).toInt().coerceIn(0, metadata.totalSongItems - 1)
-    }
-
-    fun scrollToSongIndex(songIndex: Int) {
-        val targetLazyIndex = metadata.songIndexToLazyIndex.getOrNull(songIndex) ?: return
-        scrollJob?.cancel()
-        scrollJob = coroutineScope.launch {
-            listState.scrollToItem(targetLazyIndex)
-        }
-    }
-
-    LaunchedEffect(isDragging, currentVisibleLetter) {
-        if (isDragging && currentVisibleLetter != lastHapticLetter) {
-            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-            lastHapticLetter = currentVisibleLetter
-        }
-        if (!isDragging) {
-            lastHapticLetter = null
-        }
-    }
-
     Box(
         modifier = modifier
             .fillMaxHeight()
-            .width(52.dp)
-            .padding(end = 6.dp, top = 12.dp, bottom = 120.dp)
+            .width(28.dp)
+            .padding(end = 4.dp, top = 8.dp, bottom = 112.dp)
             .onSizeChanged { overlayHeightPx = it.height }
-            .pointerInput(metadata.totalSongItems, overlayHeightPx) {
+            .pointerInput(metadata, overlayHeightPx) {
                 detectVerticalDragGestures(
                     onDragStart = { offset ->
                         isDragging = true
-                        val targetSongIndex = dragYToSongIndex(offset.y)
-                        lastDraggedSongIndex = targetSongIndex
-                        scrollToSongIndex(targetSongIndex)
+                        if (overlayHeightPx <= 0) return@detectVerticalDragGestures
+                        val scrollPercent = (offset.y / overlayHeightPx.toFloat()).coerceIn(0f, 1f)
+                        val songIdx = (scrollPercent * (metadata.totalSongItems - 1)).toInt()
+                            .coerceIn(0, metadata.totalSongItems - 1)
+                        val lazyIdx = metadata.songIndexToLazyIndex.getOrNull(songIdx) ?: 0
+                        coroutineScope.launch { listState.scrollToItem(lazyIdx) }
                     },
-                    onDragEnd = {
-                        isDragging = false
-                        lastDraggedSongIndex = -1
-                    },
-                    onDragCancel = {
-                        isDragging = false
-                        lastDraggedSongIndex = -1
-                    },
-                ) { change, _ ->
-                    change.consume()
-                    if (metadata.totalSongItems == 0 || overlayHeightPx == 0) return@detectVerticalDragGestures
-                    val targetSongIndex = dragYToSongIndex(change.position.y)
-                    if (targetSongIndex != lastDraggedSongIndex) {
-                        lastDraggedSongIndex = targetSongIndex
-                        scrollToSongIndex(targetSongIndex)
+                    onDragEnd = { isDragging = false },
+                    onDragCancel = { isDragging = false },
+                    onVerticalDrag = { change, _ ->
+                        change.consume()
+                        if (overlayHeightPx <= 0) return@detectVerticalDragGestures
+                        val scrollPercent = (change.position.y / overlayHeightPx.toFloat()).coerceIn(0f, 1f)
+                        val songIdx = (scrollPercent * (metadata.totalSongItems - 1)).toInt()
+                            .coerceIn(0, metadata.totalSongItems - 1)
+                        val lazyIdx = metadata.songIndexToLazyIndex.getOrNull(songIdx) ?: 0
+                        coroutineScope.launch { listState.scrollToItem(lazyIdx) }
                     }
-                }
+                )
             },
     ) {
         Box(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .width(thumbWidth)
+                .width(4.dp)
                 .fillMaxHeight()
                 .clip(RoundedCornerShape(999.dp))
-                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)),
+                .alpha(trackAlpha)
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)),
         )
 
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .offset(y = thumbOffsetDp)
-                .width(thumbWidth)
+                .width(4.dp)
                 .height(thumbHeightDp)
                 .clip(RoundedCornerShape(999.dp))
                 .alpha(thumbAlpha)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.42f)),
         )
-
-        AnimatedVisibility(
-            visible = isDragging,
-            enter = fadeIn(animationSpec = tween(180)) + scaleIn(initialScale = 0.92f, animationSpec = tween(180, easing = FastOutSlowInEasing)),
-            exit = fadeOut(animationSpec = tween(180)) + scaleOut(targetScale = 0.92f, animationSpec = tween(180, easing = FastOutSlowInEasing)),
-            modifier = Modifier.align(Alignment.Center),
-        ) {
-            Surface(
-                shape = RoundedCornerShape(28.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f),
-                tonalElevation = 6.dp,
-                shadowElevation = 18.dp,
-                modifier = Modifier
-                    .size(width = 112.dp, height = 112.dp)
-                    .scale(bubbleScale)
-                    .blur(0.2.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(RoundedCornerShape(28.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.26f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = currentVisibleLetter,
-                        style = MaterialTheme.typography.displaySmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            }
-        }
     }
 }
