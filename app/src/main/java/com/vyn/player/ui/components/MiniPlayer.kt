@@ -1,10 +1,10 @@
 package com.vyn.player.ui.components
 
+import androidx.collection.LruCache
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,17 +16,87 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.math.roundToInt
-import coil.compose.AsyncImage
+import androidx.core.graphics.drawable.toBitmap
+import androidx.palette.graphics.Palette
+import coil.ImageLoader
+import coil.request.ImageRequest
+import coil.request.SuccessResult
 import com.vyn.player.data.model.Song
 import com.vyn.player.ui.theme.*
-import androidx.compose.animation.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
+
+private object MiniPlayerPaletteCache {
+    private val cache = object : LruCache<String, Color>(100) {}
+    private val emptyKeys = ConcurrentHashMap.newKeySet<String>()
+
+    fun get(key: String): Color? = cache.get(key)
+
+    fun put(key: String, color: Color) {
+        cache.put(key, color)
+        emptyKeys.remove(key)
+    }
+
+    fun markEmpty(key: String) {
+        cache.remove(key)
+        emptyKeys.add(key)
+    }
+
+    fun isMarkedEmpty(key: String): Boolean = emptyKeys.contains(key)
+}
+
+private suspend fun extractMiniPlayerDominantColor(
+    song: Song,
+    context: android.content.Context,
+    imageLoader: ImageLoader
+): Color? = withContext(Dispatchers.Default) {
+    val cacheKey = song.artworkUrl ?: song.path.ifBlank { song.id.toString() }
+    MiniPlayerPaletteCache.get(cacheKey)?.let { return@withContext it }
+    if (MiniPlayerPaletteCache.isMarkedEmpty(cacheKey)) return@withContext null
+
+    val artworkModel = extractArtworkModel(song, context, thumbnailMode = true) ?: run {
+        MiniPlayerPaletteCache.markEmpty(cacheKey)
+        return@withContext null
+    }
+
+    val request = ImageRequest.Builder(context)
+        .data(artworkModel)
+        .allowHardware(false)
+        .size(256)
+        .build()
+
+    val result = imageLoader.execute(request) as? SuccessResult ?: run {
+        MiniPlayerPaletteCache.markEmpty(cacheKey)
+        return@withContext null
+    }
+
+    val palette = Palette.from(
+        result.drawable.toBitmap(config = android.graphics.Bitmap.Config.ARGB_8888)
+    ).clearFilters().generate()
+
+    val dominantColor = listOf(
+        palette.getDominantColor(0),
+        palette.getMutedColor(0),
+        palette.getVibrantColor(0),
+        palette.getDarkMutedColor(0),
+        palette.getDarkVibrantColor(0)
+    ).firstOrNull { it != 0 }?.let(::Color)
+
+    if (dominantColor == null) {
+        MiniPlayerPaletteCache.markEmpty(cacheKey)
+        null
+    } else {
+        MiniPlayerPaletteCache.put(cacheKey, dominantColor)
+        dominantColor
+    }
+}
 
 @Composable
 fun MiniPlayer(
@@ -40,6 +110,27 @@ fun MiniPlayer(
     modifier: Modifier = Modifier
 ) {
     val containerShape = RoundedCornerShape(18.dp)
+    val context = LocalContext.current
+    val imageLoader = remember(context) { ImageLoader(context) }
+    var dominantTintColor by remember(currentSong?.id) { mutableStateOf<Color?>(null) }
+
+    LaunchedEffect(currentSong?.id) {
+        if (currentSong == null) {
+            dominantTintColor = null
+            return@LaunchedEffect
+        }
+
+        dominantTintColor = extractMiniPlayerDominantColor(
+            song = currentSong,
+            context = context,
+            imageLoader = imageLoader
+        )
+    }
+
+    val tintedMiniPlayerSurface = dominantTintColor
+        ?.copy(alpha = 0.12f)
+        ?.compositeOver(MaterialTheme.colorScheme.surface)
+    val miniPlayerSurfaceColor = tintedMiniPlayerSurface ?: MaterialTheme.colorScheme.surface
 
     Box(
         modifier = modifier
@@ -47,8 +138,16 @@ fun MiniPlayer(
             .height(64.dp)
             .frostedGlassBar(
                 shape = containerShape,
-                lightColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.96f),
-                darkColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                lightColor = (if (currentSong != null && dominantTintColor != null) {
+                    miniPlayerSurfaceColor
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant
+                }).copy(alpha = 0.96f),
+                darkColor = (if (currentSong != null && dominantTintColor != null) {
+                    miniPlayerSurfaceColor
+                } else {
+                    MaterialTheme.colorScheme.surface
+                }).copy(alpha = 0.96f),
                 elevation = 8.dp,
                 borderWidth = 0.8.dp,
                 borderColor = Color.White.copy(alpha = 0.08f)
