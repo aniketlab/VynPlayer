@@ -11,33 +11,28 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.haze
-import dev.chrisbanes.haze.hazeChild
-import dev.chrisbanes.haze.HazeStyle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.vyn.player.ui.components.MiniPlayer
+import com.vyn.player.ui.components.frostedGlassBar
+import com.vyn.player.ui.components.frostedSurfaceCard
 import com.vyn.player.ui.navigation.BottomNavScreens
 import com.vyn.player.ui.navigation.MuzicNavGraph
 import com.vyn.player.ui.navigation.Screen
@@ -66,7 +61,6 @@ fun MuzicAppContent(
     val selectedSong by viewModel.selectedSong.collectAsStateWithLifecycle()
     val showSongDetails by viewModel.showSongDetails.collectAsStateWithLifecycle()
     val isQueueScreenVisible by viewModel.isQueueScreenVisible.collectAsStateWithLifecycle()
-    val hazeState = remember { HazeState() }
     val context = LocalContext.current
     val activity = context as? Activity
 
@@ -91,7 +85,10 @@ fun MuzicAppContent(
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         // Outer box spans the entire screen (edge to edge)
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+        ) {
             
             // Content box (handles top/bottom status bars)
             Box(
@@ -99,7 +96,6 @@ fun MuzicAppContent(
                     .fillMaxSize()
                     .padding(paddingValues)
                     .zIndex(0f)
-                    .haze(state = hazeState)
             ) {
                 MuzicNavGraph(navController = navController)
                 
@@ -162,29 +158,26 @@ fun MuzicAppContent(
                                     alpha = 1f - expansionProgress
                                     translationY = 50f * expansionProgress
                                 }
-                                .zIndex(3f),
-                            hazeState = hazeState
+                                .zIndex(3f)
                         )
                     }
 
                     // ─── FLOATING DOCK ───
-                    val isDarkTheme = androidx.compose.foundation.isSystemInDarkTheme()
+                    val dockShape = RoundedCornerShape(26.dp)
                     Box(
                         modifier = Modifier
                             .padding(horizontal = 16.dp)
                             .fillMaxWidth()
                             .height(64.dp)
                             .zIndex(2f)
-                            .graphicsLayer {
-                                shadowElevation = if (isDarkTheme) 12f else 6f
-                                spotShadowColor = if (isDarkTheme) Color.Black.copy(alpha = 0.25f) else Color.Black.copy(alpha = 0.1f)
-                                ambientShadowColor = if (isDarkTheme) Color.Black.copy(alpha = 0.1f) else Color.Black.copy(alpha = 0.05f)
-                                shape = RoundedCornerShape(26.dp)
-                            }
-                            .clip(RoundedCornerShape(26.dp))
-                            .hazeChild(state = hazeState, shape = RoundedCornerShape(26.dp), style = HazeStyle(blurRadius = 22.dp))
-                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), RoundedCornerShape(26.dp))
-                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), RoundedCornerShape(26.dp))
+                            .frostedGlassBar(
+                                shape = dockShape,
+                                lightColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.93f),
+                                darkColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                                elevation = 8.dp,
+                                borderWidth = 0.8.dp,
+                                borderColor = Color.White.copy(alpha = 0.08f)
+                            )
                     ) {
                         Row(
                             modifier = Modifier.fillMaxSize(),
@@ -227,21 +220,30 @@ fun MuzicAppContent(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.Center
                                 ) {
-                                    Icon(
-                                        imageVector = screen.icon!!,
-                                        contentDescription = screen.title,
-                                        tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    Box(
                                         modifier = Modifier
-                                            .size(22.dp)
-                                            .scale(scale)
-                                    )
+                                            .background(
+                                                color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else Color.Transparent,
+                                                shape = RoundedCornerShape(12.dp)
+                                            )
+                                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = screen.icon!!,
+                                            contentDescription = screen.title,
+                                            tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                                            modifier = Modifier
+                                                .size(22.dp)
+                                                .scale(scale)
+                                        )
+                                    }
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
                                         text = screen.title!!.uppercase(),
                                         fontSize = 9.sp,
                                         fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
                                         letterSpacing = 0.3.sp,
-                                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
                                     )
                                 }
                             }

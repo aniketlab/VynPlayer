@@ -2,18 +2,26 @@ package com.vyn.player.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.launch
 
 fun Modifier.bounceClick(
     scaleDown: Float = 0.97f,
@@ -72,3 +80,81 @@ fun Modifier.animateListEntry(
     index: Int = 0,
     delay: Int = 0 
 ): Modifier = this // No-op, removes composed overhead entirely for maximum list perf
+
+fun Modifier.frostedSurfaceCard(
+    shape: Shape,
+    elevation: Dp = 12.dp,
+    borderWidth: Dp = 0.8.dp,
+    borderAlpha: Float = 0.25f,
+    lightSurfaceAlpha: Float = 0.96f,
+    darkSurfaceAlpha: Float = 0.92f,
+    tintAlpha: Float = 0.06f
+): Modifier = composed {
+    val isDarkTheme = isSystemInDarkTheme()
+    val surfaceBase = MaterialTheme.colorScheme.surface.copy(
+        alpha = if (isDarkTheme) darkSurfaceAlpha else lightSurfaceAlpha
+    )
+    val surfaceColor = if (tintAlpha > 0f) {
+        MaterialTheme.colorScheme.primary.copy(alpha = tintAlpha).compositeOver(surfaceBase)
+    } else {
+        surfaceBase
+    }
+    val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = borderAlpha)
+    val shadowElevation = if (isDarkTheme) 16.dp else elevation
+
+    this
+        .shadow(
+            elevation = shadowElevation,
+            shape = shape,
+            ambientColor = Color.Black.copy(alpha = 0.08f),
+            spotColor = Color.Black.copy(alpha = 0.18f)
+        )
+        .clip(shape)
+        .background(surfaceColor, shape)
+        .border(
+            width = borderWidth,
+            color = borderColor,
+            shape = shape
+        )
+}
+
+fun Modifier.frostedGlassBar(
+    shape: Shape,
+    lightColor: Color,
+    darkColor: Color,
+    borderWidth: Dp = 0.8.dp,
+    borderColor: Color = Color.White.copy(alpha = 0.08f),
+    elevation: Dp = 8.dp
+): Modifier = composed {
+    val isDarkTheme = isSystemInDarkTheme()
+    val surfaceColor = if (isDarkTheme) darkColor else lightColor
+
+    this
+        .shadow(
+            elevation = elevation,
+            shape = shape,
+            ambientColor = Color.Black.copy(alpha = 0.08f),
+            spotColor = Color.Black.copy(alpha = 0.18f)
+        )
+        .clip(shape)
+        .background(surfaceColor, shape)
+        .border(
+            width = borderWidth,
+            color = borderColor,
+            shape = shape
+        )
+}
+
+@Composable
+fun balancedBarSurfaceColor(
+    lightSurfaceAlpha: Float = 0.96f,
+    darkSurfaceAlpha: Float = 0.92f,
+    tintAlpha: Float = 0.06f
+): Color {
+    val isDarkTheme = isSystemInDarkTheme()
+    val surfaceBase = MaterialTheme.colorScheme.surface.copy(
+        alpha = if (isDarkTheme) darkSurfaceAlpha else lightSurfaceAlpha
+    )
+    val tintColor = MaterialTheme.colorScheme.primary.copy(alpha = tintAlpha)
+    return tintColor.compositeOver(surfaceBase)
+}
