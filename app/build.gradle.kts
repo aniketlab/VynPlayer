@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +8,14 @@ plugins {
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
 }
+
+val versionPropsFile = rootProject.file("version.properties")
+val versionProps = Properties().apply {
+    load(FileInputStream(versionPropsFile))
+}
+
+val versionCodeFromProps = versionProps.getProperty("VERSION_CODE").toInt()
+val versionNameFromProps = versionProps.getProperty("VERSION_NAME")
 
 android {
     namespace = "com.vyn.player"
@@ -14,8 +25,8 @@ android {
         applicationId = "com.vyn.player"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "v1.0-beta"
+        versionCode = versionCodeFromProps
+        versionName = versionNameFromProps
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

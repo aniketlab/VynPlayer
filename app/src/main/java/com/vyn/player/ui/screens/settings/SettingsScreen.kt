@@ -209,7 +209,7 @@ fun SettingsScreen(
                             icon = Icons.Rounded.Info,
                             iconTint = MaterialTheme.colorScheme.primary,
                             title = "VYN Player",
-                            subtitle = "Version v1.0-beta • No Ads • Pure Music",
+                            subtitle = "Version 1.1 • No Ads • Pure Music",
                             onClick = { showAboutDialog = true }
                         )
                         SettingsDivider()
@@ -654,6 +654,7 @@ private fun UpdateAvailableDialog(
         }
     )
 }
+
 
 
 

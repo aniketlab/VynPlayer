@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">VYN Player</string>
-    <string name="app_version">Version v1.0-beta</string>
+    <string name="app_version">Version 1.1</string>
     <string name="notification_channel_name">Muzic Playback</string>
     <string name="notification_channel_description">Controls for currently playing music</string>
 </resources>
