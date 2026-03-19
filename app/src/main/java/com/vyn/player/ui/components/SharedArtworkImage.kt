@@ -3,7 +3,6 @@ package com.vyn.player.ui.components
 import android.media.MediaMetadataRetriever
 import android.util.LruCache
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -231,22 +230,15 @@ fun SharedArtworkImage(
     // No online artwork downloads — local files only
 
     // ── 4. Fallback gradient ───────────────────────────────────────────────
-    val isDark = isSystemInDarkTheme()
-    val placeholderBrush = fallbackBrush ?: remember(song?.id, song?.title, song?.artist, isDark) {
+    val placeholderBrush = fallbackBrush ?: remember(song?.id, song?.title, song?.artist) {
         val hash = (song?.title?.hashCode() ?: 0) + (song?.artist?.hashCode() ?: 0)
         val hue = (hash % 360).toFloat().absoluteValue
-        if (isDark) {
-            val c1 = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.62f, 0.20f)))
-            val c2 = Color(android.graphics.Color.HSVToColor(floatArrayOf((hue + 30f) % 360f, 0.50f, 0.30f)))
-            val c3 = Color(android.graphics.Color.HSVToColor(floatArrayOf((hue + 60f) % 360f, 0.40f, 0.40f)))
-            Brush.linearGradient(listOf(c1, c2, c3))
-        } else {
-            val c1 = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.04f, 0.98f)))
-            val c2 = Color(android.graphics.Color.HSVToColor(floatArrayOf((hue + 20f) % 360f, 0.08f, 0.95f)))
-            Brush.linearGradient(listOf(c1, c2))
-        }
+        val c1 = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.62f, 0.20f)))
+        val c2 = Color(android.graphics.Color.HSVToColor(floatArrayOf((hue + 30f) % 360f, 0.50f, 0.30f)))
+        val c3 = Color(android.graphics.Color.HSVToColor(floatArrayOf((hue + 60f) % 360f, 0.40f, 0.40f)))
+        Brush.linearGradient(listOf(c1, c2, c3))
     }
-    val fallbackTextColor = if (isDark) Color(0xFFFFFFFF) else Color(0xFF111111)
+    val fallbackTextColor = Color(0xFFFFFFFF)
     val fallbackLetter = remember(song?.title, song?.artist) {
         val title = song?.title?.trim() ?: ""
         val artist = song?.artist?.trim() ?: ""

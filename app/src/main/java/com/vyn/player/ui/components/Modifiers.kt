@@ -9,7 +9,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -90,9 +89,8 @@ fun Modifier.frostedSurfaceCard(
     darkSurfaceAlpha: Float = 0.92f,
     tintAlpha: Float = 0.06f
 ): Modifier = composed {
-    val isDarkTheme = isSystemInDarkTheme()
     val surfaceBase = MaterialTheme.colorScheme.surface.copy(
-        alpha = if (isDarkTheme) darkSurfaceAlpha else lightSurfaceAlpha
+        alpha = darkSurfaceAlpha
     )
     val surfaceColor = if (tintAlpha > 0f) {
         MaterialTheme.colorScheme.primary.copy(alpha = tintAlpha).compositeOver(surfaceBase)
@@ -100,7 +98,7 @@ fun Modifier.frostedSurfaceCard(
         surfaceBase
     }
     val borderColor = MaterialTheme.colorScheme.outline.copy(alpha = borderAlpha)
-    val shadowElevation = if (isDarkTheme) 16.dp else elevation
+    val shadowElevation = 16.dp
 
     this
         .shadow(
@@ -126,8 +124,7 @@ fun Modifier.frostedGlassBar(
     borderColor: Color = Color.White.copy(alpha = 0.08f),
     elevation: Dp = 8.dp
 ): Modifier = composed {
-    val isDarkTheme = isSystemInDarkTheme()
-    val surfaceColor = if (isDarkTheme) darkColor else lightColor
+    val surfaceColor = darkColor
 
     this
         .shadow(
@@ -151,9 +148,8 @@ fun balancedBarSurfaceColor(
     darkSurfaceAlpha: Float = 0.92f,
     tintAlpha: Float = 0.06f
 ): Color {
-    val isDarkTheme = isSystemInDarkTheme()
     val surfaceBase = MaterialTheme.colorScheme.surface.copy(
-        alpha = if (isDarkTheme) darkSurfaceAlpha else lightSurfaceAlpha
+        alpha = darkSurfaceAlpha
     )
     val tintColor = MaterialTheme.colorScheme.primary.copy(alpha = tintAlpha)
     return tintColor.compositeOver(surfaceBase)

@@ -109,7 +109,7 @@ fun SplashScreen(onNavigateToLibrary: () -> Unit) {
 
             // App name
             Text(
-                text = "VYN PLAYER",
+                text = "VYN Player",
                 fontSize = 36.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,

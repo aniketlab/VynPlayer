@@ -4,7 +4,6 @@ import android.net.Uri
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -66,23 +65,16 @@ fun MuzicImage(
 
     val showPlaceholder = (isEmpty || isError) && internetModel == null
 
-    val isDark = isSystemInDarkTheme()
-    val placeholderBrush = remember(fallbackText, isDark) {
+    val placeholderBrush = remember(fallbackText) {
         val hash = fallbackText?.hashCode() ?: 0
         val hue = (hash % 360).toFloat().absoluteValue
-        if (isDark) {
-            val c1 = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.62f, 0.20f)))
-            val c2 = Color(android.graphics.Color.HSVToColor(floatArrayOf((hue + 30f) % 360f, 0.50f, 0.30f)))
-            val c3 = Color(android.graphics.Color.HSVToColor(floatArrayOf((hue + 60f) % 360f, 0.40f, 0.40f)))
-            Brush.linearGradient(listOf(c1, c2, c3))
-        } else {
-            val c1 = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.04f, 0.98f)))
-            val c2 = Color(android.graphics.Color.HSVToColor(floatArrayOf((hue + 20f) % 360f, 0.08f, 0.95f)))
-            Brush.linearGradient(listOf(c1, c2))
-        }
+        val c1 = Color(android.graphics.Color.HSVToColor(floatArrayOf(hue, 0.62f, 0.20f)))
+        val c2 = Color(android.graphics.Color.HSVToColor(floatArrayOf((hue + 30f) % 360f, 0.50f, 0.30f)))
+        val c3 = Color(android.graphics.Color.HSVToColor(floatArrayOf((hue + 60f) % 360f, 0.40f, 0.40f)))
+        Brush.linearGradient(listOf(c1, c2, c3))
     }
-    
-    val fallbackTextColor = if (isDark) Color(0xFFFFFFFF) else Color(0xFF111111)
+
+    val fallbackTextColor = Color(0xFFFFFFFF)
 
 
     Surface(

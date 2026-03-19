@@ -101,7 +101,7 @@ fun LibraryScreen(
                 TopAppBar(
                     title = {
                         Text(
-                            text = "VYN PLAYER",
+                            text = "VYN Player",
                             fontWeight = FontWeight.Bold,
                             fontSize = 28.sp,
                             color = MaterialTheme.colorScheme.onBackground,

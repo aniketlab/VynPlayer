@@ -1,8 +1,8 @@
 package com.vyn.player.ui.screens.settings
 
-import android.content.Context
 import android.content.Intent
-import androidx.compose.animation.animateColorAsState
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -19,9 +19,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -29,6 +31,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vyn.player.BuildConfig
+import com.vyn.player.R
+import com.vyn.player.data.model.GithubRelease
 import com.vyn.player.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,15 +48,21 @@ fun SettingsScreen(
 
     var showAboutDialog by remember { mutableStateOf(false) }
     var showPrivacyDialog by remember { mutableStateOf(false) }
-    var showThemeDialog by remember { mutableStateOf(false) }
     var showAudioEnhancementDialog by remember { mutableStateOf(false) }
-    
-    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val adaptivePadding = getAdaptivePadding()
     val listState = rememberLazyListState()
 
+    LaunchedEffect(uiState.infoMessage) {
+        uiState.infoMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearInfoMessage()
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -145,12 +156,46 @@ fun SettingsScreen(
                             icon = Icons.Rounded.DarkMode,
                             iconTint = MaterialTheme.colorScheme.secondary,
                             title = "Theme",
-                            subtitle = when (themeMode) {
-                                1 -> "Light Mode"
-                                2 -> "Dark Mode"
-                                else -> "System Default"
+                            subtitle = "Dark Mode",
+                            onClick = { }
+                        )
+                    }
+                }
+            }
+
+            item {
+                SettingsSection("Updates") {
+                    SettingsCard {
+                        SettingsItem(
+                            icon = Icons.Rounded.SystemUpdate,
+                            iconTint = MaterialTheme.colorScheme.tertiary,
+                            title = "Check for Updates",
+                            subtitle = if (uiState.isCheckingForUpdates) {
+                                "Checking latest version from server..."
+                            } else {
+                                "Check latest version from server"
                             },
-                            onClick = { showThemeDialog = true }
+                            trailing = {
+                                if (uiState.isCheckingForUpdates) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Rounded.ChevronRight,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            },
+                            onClick = {
+                                if (!uiState.isCheckingForUpdates) {
+                                    viewModel.checkForUpdates()
+                                }
+                            }
                         )
                     }
                 }
@@ -163,8 +208,8 @@ fun SettingsScreen(
                         SettingsItem(
                             icon = Icons.Rounded.Info,
                             iconTint = MaterialTheme.colorScheme.primary,
-                            title = "VYN PLAYER",
-                            subtitle = "Version 1.0 • No Ads • Pure Music",
+                            title = "VYN Player",
+                            subtitle = "Version v1.0-beta • No Ads • Pure Music",
                             onClick = { showAboutDialog = true }
                         )
                         SettingsDivider()
@@ -235,14 +280,14 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
-                        text = "VYN PLAYER",
+                        text = "VYN Player",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
 
                     Text(
-                        text = "Version 1.0",
+                        text = stringResource(R.string.app_version),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
@@ -314,12 +359,12 @@ fun SettingsScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        text = "VYN PLAYER is designed as a completely offline music experience.",
+                        text = "VYN Player is designed as a completely offline music experience.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
                     )
                     PrivacyPolicySection("Internet Access", "This application does not require internet permission. Your device never sends music data outside your phone.")
-                    PrivacyPolicySection("Data Collection", "VYN PLAYER does not collect, store, or transmit any personal data.")
+                    PrivacyPolicySection("Data Collection", "VYN Player does not collect, store, or transmit any personal data.")
                     PrivacyPolicySection("Advertising", "This application contains no advertisements and integrates no analytics or tracking frameworks.")
                     PrivacyPolicySection("Local Playback", "All audio files are played directly from your device storage.")
                     PrivacyPolicySection("Offline First", "The player is designed to function entirely offline with zero background network activity.")
@@ -328,52 +373,6 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(onClick = { showPrivacyDialog = false }) {
                     Text("Got it", color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.Bold)
-                }
-            }
-        )
-    }
-
-    if (showThemeDialog) {
-        AlertDialog(
-            onDismissRequest = { showThemeDialog = false },
-            containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(20.dp),
-            title = {
-                Text("Select Theme", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
-            },
-            text = {
-                Column {
-                    ThemeOption(
-                        title = "System Default", 
-                        subtitle = "Follows device theme", 
-                        isSelected = themeMode == 0,
-                        onClick = {
-                            viewModel.setThemeMode(0)
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    ThemeOption(
-                        title = "Light Mode", 
-                        subtitle = "A bright interface", 
-                        isSelected = themeMode == 1,
-                        onClick = {
-                            viewModel.setThemeMode(1)
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    ThemeOption(
-                        title = "Dark Mode", 
-                        subtitle = "AMOLED optimized", 
-                        isSelected = themeMode == 2,
-                        onClick = {
-                            viewModel.setThemeMode(2)
-                        }
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showThemeDialog = false }) {
-                    Text("Close", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -415,6 +414,56 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(onClick = { showAudioEnhancementDialog = false }) {
                     Text("OK", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    if (uiState.showUpdateDialog && uiState.latestRelease != null) {
+        UpdateAvailableDialog(
+            release = uiState.latestRelease!!,
+            currentVersion = BuildConfig.VERSION_NAME,
+            onDismiss = viewModel::dismissUpdateDialog,
+            onUpdate = { apkUrl ->
+                if (apkUrl.startsWith("https://") && apkUrl.isNotBlank()) {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(apkUrl)))
+                    viewModel.dismissUpdateDialog()
+                } else {
+                    Toast.makeText(context, "Invalid secure APK link", Toast.LENGTH_SHORT).show()
+                }
+            }
+        )
+    }
+
+    if (uiState.showRetryDialog) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissRetryDialog,
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(20.dp),
+            title = {
+                Text(
+                    text = "Update Check Failed",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = uiState.updateErrorMessage ?: "Something went wrong while checking for updates.",
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.dismissRetryDialog()
+                    viewModel.checkForUpdates(forceRefresh = true)
+                }) {
+                    Text("Retry", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissRetryDialog) {
+                    Text("Cancel", fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -468,6 +517,7 @@ private fun SettingsItem(
     iconTint: androidx.compose.ui.graphics.Color,
     title: String,
     subtitle: String,
+    trailing: @Composable (() -> Unit)? = null,
     onClick: () -> Unit
 ) {
     Row(
@@ -506,7 +556,7 @@ private fun SettingsItem(
                 fontSize = 12.sp
             )
         }
-        Icon(
+        trailing?.invoke() ?: Icon(
             imageVector = Icons.Rounded.ChevronRight,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
@@ -549,28 +599,63 @@ private fun PrivacyPolicySection(title: String, description: String) {
 }
 
 @Composable
-private fun ThemeOption(title: String, subtitle: String, isSelected: Boolean, onClick: () -> Unit = {}) {
-    Surface(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
-                Text(subtitle, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), style = MaterialTheme.typography.bodySmall)
-            }
-            if (isSelected) {
-                Icon(
-                    imageVector = Icons.Rounded.CheckCircle,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
+private fun UpdateAvailableDialog(
+    release: GithubRelease,
+    currentVersion: String,
+    onDismiss: () -> Unit,
+    onUpdate: (String) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(20.dp),
+        title = {
+            Text(
+                text = "Update Available 🚀",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "Current version: $currentVersion",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+                )
+                Text(
+                    text = "Latest version: ${release.tag_name}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "Changelog",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = release.body.ifBlank { "No changelog provided." },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                 )
             }
+        },
+        confirmButton = {
+            TextButton(onClick = { onUpdate(release.apkUrl) }) {
+                Text("Update", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", fontWeight = FontWeight.Bold)
+            }
         }
-    }
+    )
 }
+
+
+
+
+

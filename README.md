@@ -1,10 +1,10 @@
-# VYN PLAYER
+# VYN Player
 
-VYN PLAYER is a modern offline music player for Android built with Kotlin, Jetpack Compose, and AndroidX Media3. It is designed for users who want a fast, elegant, local-first listening experience without ads, accounts, or streaming dependencies.
+VYN Player is a modern offline music player for Android built with Kotlin, Jetpack Compose, and AndroidX Media3. It is designed for users who want a fast, elegant, local-first listening experience without ads, accounts, or streaming dependencies.
 
 ## Overview
 
-VYN PLAYER focuses on smooth local music playback, a polished modern interface, and maintainable Android architecture. The app scans on-device audio, organizes it into a structured library, and delivers a responsive playback experience with queue handling, playlist support, favorites, history-driven features, and deep Android media integration.
+VYN Player focuses on smooth local music playback, a polished modern interface, and maintainable Android architecture. The app scans on-device audio, organizes it into a structured library, and delivers a responsive playback experience with queue handling, playlist support, favorites, history-driven features, and deep Android media integration.
 
 ## Key Features
 
@@ -21,7 +21,7 @@ VYN PLAYER focuses on smooth local music playback, a polished modern interface, 
 
 ## Supported Audio Formats
 
-VYN PLAYER is intended for common local audio playback workflows and supports formats typically handled through Android media playback, including:
+VYN Player is intended for common local audio playback workflows and supports formats typically handled through Android media playback, including:
 
 - MP3
 - AAC
@@ -67,7 +67,7 @@ app/src/main/java/com/vyn/player/
 
 ## Project Goals
 
-VYN PLAYER is built around three core goals:
+VYN Player is built around three core goals:
 
 1. **Local-first listening** — keep the music experience focused on files already on the device.
 2. **Smooth UX** — deliver fast rendering, fluid scrolling, and responsive playback actions.
@@ -139,7 +139,7 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ## Repository Usage
 
-- This repository contains the main source code for VYN PLAYER.
+- This repository contains the main source code for VYN Player.
 - Debug APKs can be generated locally through Gradle.
 - Releases can be distributed separately through GitHub Releases or a dedicated release repository.
 

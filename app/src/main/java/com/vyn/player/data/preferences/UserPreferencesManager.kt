@@ -43,18 +43,7 @@ class UserPreferencesManager @Inject constructor(
         val LAST_QUEUE_INDEX = androidx.datastore.preferences.core.intPreferencesKey("last_queue_index")
         val LAST_SHUFFLE_STATE = androidx.datastore.preferences.core.booleanPreferencesKey("last_shuffle_state")
         val LAST_REPEAT_MODE = androidx.datastore.preferences.core.intPreferencesKey("last_repeat_mode")
-        val THEME_MODE_KEY = androidx.datastore.preferences.core.intPreferencesKey("theme_mode")
         val ARTWORK_DOWNLOAD_MODE = intPreferencesKey("artwork_download_mode")
-    }
-
-    val themeMode: Flow<Int> = context.dataStore.data.map { preferences ->
-        preferences[THEME_MODE_KEY] ?: 0 // 0 = System, 1 = Light, 2 = Dark
-    }
-
-    suspend fun saveThemeMode(mode: Int) {
-        context.dataStore.edit { preferences ->
-            preferences[THEME_MODE_KEY] = mode
-        }
     }
 
     val userAvatarUrl: Flow<String?> = context.dataStore.data.map { preferences ->

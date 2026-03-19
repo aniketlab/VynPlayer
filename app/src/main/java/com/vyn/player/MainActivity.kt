@@ -8,6 +8,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
@@ -21,14 +22,8 @@ import com.vyn.player.ui.components.LocalArtworkRepository
 import com.vyn.player.ui.theme.MuzicTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.lifecycle.lifecycleScope
-import androidx.media3.common.util.UnstableApi
 import com.vyn.player.player.PlaybackManager
-import com.vyn.player.data.preferences.UserPreferencesManager
-import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -39,28 +34,19 @@ import com.vyn.player.data.model.Song
 class MainActivity : ComponentActivity() {
 
     @Inject
-    lateinit var userPreferencesManager: UserPreferencesManager
-
-    @Inject
     lateinit var artworkRepository: ArtworkRepository
 
     @Inject
     lateinit var playbackManager: PlaybackManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         setContent {
-            val themeMode by userPreferencesManager.themeMode.collectAsState(initial = 0)
-            val isDarkTheme = when (themeMode) {
-                1 -> false
-                2 -> true
-                else -> isSystemInDarkTheme()
-            }
-
-            MuzicTheme(darkTheme = isDarkTheme) {
+            MuzicTheme {
                 CompositionLocalProvider(LocalArtworkRepository provides artworkRepository) {
                     Surface(
                         modifier = Modifier.fillMaxSize(),

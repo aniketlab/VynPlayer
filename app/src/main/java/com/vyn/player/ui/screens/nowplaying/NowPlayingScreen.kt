@@ -25,10 +25,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -69,7 +70,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 private data class DynamicArtworkBackgroundPalette(
     val dominant: Color,
-    val accent: Color
+    val dark: Color
 )
 
 private fun Color.adjustForNowPlayingBackground(): Color {
@@ -78,6 +79,15 @@ private fun Color.adjustForNowPlayingBackground(): Color {
     hsv[1] = (hsv[1] * 0.88f).coerceIn(0f, 1f)
     hsv[2] = (hsv[2] * 0.84f).coerceIn(0f, 1f)
     return Color(AndroidColor.HSVToColor(hsv))
+}
+
+private fun Color.darken(amount: Float): Color {
+    val factor = (1f - amount).coerceIn(0f, 1f)
+    return copy(
+        red = red * factor,
+        green = green * factor,
+        blue = blue * factor
+    )
 }
 
 private object NowPlayingPaletteCache {
@@ -101,7 +111,8 @@ private object NowPlayingPaletteCache {
 private suspend fun extractNowPlayingPalette(
     song: Song,
     context: android.content.Context,
-    imageLoader: ImageLoader
+    imageLoader: ImageLoader,
+    fallbackColor: Color
 ): DynamicArtworkBackgroundPalette? = withContext(Dispatchers.Default) {
     val cacheKey = song.artworkUrl ?: song.path.ifBlank { song.id.toString() }
     NowPlayingPaletteCache.get(cacheKey)?.let { return@withContext it }
@@ -125,24 +136,18 @@ private suspend fun extractNowPlayingPalette(
 
     val bitmap = result.drawable.toBitmap(config = android.graphics.Bitmap.Config.ARGB_8888)
     val palette = Palette.from(bitmap).clearFilters().generate()
-    val vibrant = palette.getVibrantColor(0)
-    val darkVibrant = palette.getDarkVibrantColor(0)
-    val muted = palette.getMutedColor(0)
-    val darkMuted = palette.getDarkMutedColor(0)
-    val dominant = palette.getDominantColor(0)
-
-    val topColorArgb = listOf(vibrant, darkVibrant, muted, dominant).firstOrNull { it != 0 } ?: run {
-        NowPlayingPaletteCache.markEmpty(cacheKey)
-        return@withContext null
-    }
-    val accentArgb = listOf(darkVibrant, darkMuted, muted, dominant).firstOrNull { it != 0 } ?: topColorArgb
-
-    val adjustedTopColor = Color(topColorArgb).adjustForNowPlayingBackground()
-    val adjustedAccentColor = Color(accentArgb).adjustForNowPlayingBackground()
+    val baseColor = palette.vibrantSwatch?.rgb
+        ?: palette.dominantSwatch?.rgb
+        ?: palette.mutedSwatch?.rgb
+        ?: fallbackColor.toArgb()
+    val adjustedTopColor = Color(baseColor)
+        .adjustForNowPlayingBackground()
+        .darken(0.25f)
+    val darkColor = adjustedTopColor.copy(alpha = 0.7f).compositeOver(Color.Black)
 
     return@withContext DynamicArtworkBackgroundPalette(
         dominant = adjustedTopColor,
-        accent = adjustedAccentColor
+        dark = darkColor
     ).also { NowPlayingPaletteCache.put(cacheKey, it) }
 }
 
@@ -194,7 +199,9 @@ fun NowPlayingContent(
     val onSongAction = LocalSongActionDispatcher.current
     val context = LocalContext.current
     val imageLoader = remember(context) { ImageLoader(context) }
+    val primaryColor = MaterialTheme.colorScheme.primary
     var showLyricsDialog by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
 
     var dynamicPalette by remember(song?.id) { mutableStateOf<DynamicArtworkBackgroundPalette?>(null) }
     var activePaletteKey by remember { mutableStateOf<String?>(null) }
@@ -219,7 +226,12 @@ fun NowPlayingContent(
             dynamicPalette = null
             return@LaunchedEffect
         }
-        val extractedPalette = extractNowPlayingPalette(song, context, imageLoader)
+        val extractedPalette = extractNowPlayingPalette(
+            song = song,
+            context = context,
+            imageLoader = imageLoader,
+            fallbackColor = primaryColor
+        )
         if (extractedPalette != null) {
             activePaletteKey = paletteKey
             backgroundArtworkModel = artworkModel
@@ -238,15 +250,42 @@ fun NowPlayingContent(
 
     val defaultBackground = MaterialTheme.colorScheme.background
     val dynamicBackgroundEnabled = dynamicPalette != null && backgroundArtworkModel != null
+    val currentPalette = dynamicPalette
     val animatedTopColor by animateColorAsState(
-        targetValue = dynamicPalette?.dominant?.copy(alpha = 0.36f) ?: defaultBackground,
+        targetValue = when {
+            currentPalette == null -> defaultBackground
+            else -> currentPalette.dominant.copy(alpha = 0.35f)
+        },
         animationSpec = tween(durationMillis = 1400, easing = FastOutSlowInEasing),
         label = "nowPlayingDynamicTopColor"
     )
-    val animatedAccentColor by animateColorAsState(
-        targetValue = dynamicPalette?.accent?.copy(alpha = 0.18f) ?: defaultBackground,
+    val animatedMidColor by animateColorAsState(
+        targetValue = when {
+            currentPalette == null -> defaultBackground
+            else -> currentPalette.dominant.copy(alpha = 0.18f)
+        },
         animationSpec = tween(durationMillis = 1400, easing = FastOutSlowInEasing),
-        label = "nowPlayingDynamicAccentColor"
+        label = "nowPlayingDynamicMidColor"
+    )
+    val backgroundDrift = rememberInfiniteTransition(label = "nowPlayingGradientDrift")
+    val animatedGradientDrift by backgroundDrift.animateFloat(
+        initialValue = -0.04f,
+        targetValue = 0.04f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 20_000, easing = EaseInOut),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "nowPlayingGradientDriftValue"
+    )
+    val infiniteTransition = rememberInfiniteTransition(label = "bgBreathing")
+    val bgScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.08f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(6000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bgScale"
     )
 
     // ─── Clean metadata ───
@@ -277,95 +316,101 @@ fun NowPlayingContent(
         val screenWidth = maxWidth
         val adaptivePadding = getAdaptivePadding()
         val density = LocalDensity.current
+        val containerHeightPx = constraints.maxHeight.toFloat()
+        val surfaceVariantColor = MaterialTheme.colorScheme.surfaceVariant
         val artSize = (screenWidth.value * 0.7f).coerceAtMost(screenHeight.value * 0.42f).toFloat().dp
         val rippleRadius = remember(screenWidth, screenHeight, rippleProgress.value) {
             val minRadius = minOf(screenWidth.value, screenHeight.value) * 0.18f
             val maxRadius = maxOf(screenWidth.value, screenHeight.value) * 1.05f
             lerp(minRadius, maxRadius, rippleProgress.value).dp
         }
-        val rippleColor = animatedTopColor.copy(alpha = (1f - rippleProgress.value) * 0.22f)
-        val rippleRadiusPx = with(density) { rippleRadius.toPx() }
-        val backgroundGradient = remember(animatedTopColor, animatedAccentColor, defaultBackground) {
+
+        val darkBackgroundGradient = remember(animatedTopColor, animatedMidColor) {
             Brush.verticalGradient(
-                colors = listOf(animatedTopColor, animatedAccentColor, defaultBackground)
+                colors = listOf(
+                    animatedTopColor,
+                    animatedMidColor,
+                    Color.Black
+                ),
+                startY = 0f,
+                endY = Float.POSITIVE_INFINITY
             )
+        }
+        val rootBackgroundBrush = remember(dynamicBackgroundEnabled, darkBackgroundGradient, defaultBackground) {
+            when {
+                !dynamicBackgroundEnabled -> SolidColor(defaultBackground)
+                else -> darkBackgroundGradient
+            }
         }
 
         Box(
-            modifier = Modifier
-                .matchParentSize()
-                .background(defaultBackground)
-        )
-
-        if (dynamicBackgroundEnabled) {
-            AsyncImage(
-                model = remember(backgroundArtworkModel) {
-                    ImageRequest.Builder(context)
-                        .data(backgroundArtworkModel)
-                        .allowHardware(false)
-                        .crossfade(false)
-                        .size(768)
-                        .build()
-                },
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .matchParentSize()
-                    .blur(52.dp)
-                    .graphicsLayer { alpha = 0.23f }
-            )
-
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(backgroundGradient)
-            )
-
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(
-                                rippleColor,
-                                rippleColor.copy(alpha = rippleColor.alpha * 0.45f),
-                                Color.Transparent
-                            ),
-                            center = androidx.compose.ui.geometry.Offset(
-                                x = constraints.maxWidth / 2f,
-                                y = constraints.maxHeight / 2f
-                            ),
-                            radius = rippleRadiusPx,
-                            tileMode = TileMode.Clamp
-                        )
-                    )
-            )
-        }
-
-        ConstraintLayout(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .padding(horizontal = adaptivePadding)
+            modifier = Modifier.fillMaxSize()
         ) {
-            val (topSection, artSection, playbackSection) = createRefs()
-
-            // ─── Zone 1: Top Metadata Section (Pinned to Top) ───
-            Column(
+            Box(
                 modifier = Modifier
-                    .constrainAs(topSection) {
-                        top.linkTo(parent.top)
-                        start.linkTo(parent.start)
-                        end.linkTo(parent.end)
-                        width = Dimension.fillToConstraints
-                    }
-                    .graphicsLayer {
-                        alpha = expansionProgress
-                        translationY = 50f * (1f - expansionProgress)
-                    },
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .matchParentSize()
+                    .background(rootBackgroundBrush)
             ) {
+                if (dynamicBackgroundEnabled) {
+                    AsyncImage(
+                        model = remember(backgroundArtworkModel) {
+                            ImageRequest.Builder(context)
+                                .data(backgroundArtworkModel)
+                                .allowHardware(false)
+                                .crossfade(false)
+                                .size(768)
+                                .build()
+                        },
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .matchParentSize()
+                            .blur(52.dp)
+                            .graphicsLayer {
+                                scaleX = bgScale
+                                scaleY = bgScale
+                                alpha = 0.18f
+                            }
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .graphicsLayer {
+                                translationY = containerHeightPx * animatedGradientDrift
+                                scaleY = 1.08f
+                            }
+                            .background(darkBackgroundGradient)
+                    )
+                }
+
+            }
+
+            ConstraintLayout(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Transparent)
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .padding(horizontal = adaptivePadding)
+            ) {
+                val (topSection, artSection, playbackSection) = createRefs()
+
+                // ─── Zone 1: Top Metadata Section (Pinned to Top) ───
+                Column(
+                    modifier = Modifier
+                        .constrainAs(topSection) {
+                            top.linkTo(parent.top)
+                            start.linkTo(parent.start)
+                            end.linkTo(parent.end)
+                            width = Dimension.fillToConstraints
+                        }
+                        .graphicsLayer {
+                            alpha = expansionProgress
+                            translationY = 50f * (1f - expansionProgress)
+                        },
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                 // Top Navigation Bar
                 Row(
                     modifier = Modifier
@@ -403,12 +448,42 @@ fun NowPlayingContent(
                         )
                     }
 
-                    BounceIconButton(onClick = { }) {
-                        Icon(
-                            imageVector = Icons.Rounded.MoreHoriz,
-                            contentDescription = "More",
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
+                    Box {
+                        BounceIconButton(onClick = { showMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Rounded.MoreHoriz,
+                                contentDescription = "More",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Add to Playlist") },
+                                onClick = {
+                                    showMenu = false
+                                }
+                            )
+
+                            DropdownMenuItem(
+                                text = { Text("Share") },
+                                onClick = {
+                                    showMenu = false
+                                    song?.let { onSongAction(SongAction.Share(it)) }
+                                }
+                            )
+
+                            DropdownMenuItem(
+                                text = { Text("Song Info") },
+                                onClick = {
+                                    showMenu = false
+                                    song?.let { onSongAction(SongAction.ShowDetails(it)) }
+                                }
+                            )
+                        }
                     }
                 }
 
@@ -440,26 +515,26 @@ fun NowPlayingContent(
                         textAlign = TextAlign.Center
                     )
                 }
-            }
+                }
 
-            // ─── Zone 2: Album Artwork Section (Centered Vertically) ───
-            val navPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-            val miniArtCenterY = screenHeight.value - (navPadding.value + 36 + 12) // Approx mini-player center Y relative to bottom
-            val fullArtCenterY = screenHeight.value / 2 // Approx center
-            
-            com.vyn.player.ui.components.SharedArtworkImage(
-                song = song,
-                contentDescription = "Album art",
-                modifier = Modifier
-                    .constrainAs(artSection) {
-                        top.linkTo(topSection.bottom)
-                        bottom.linkTo(playbackSection.top)
-                        start.linkTo(parent.start)
-                        end.linkTo(parent.end)
-                    }
-                    .width(screenWidth * 0.7f)
-                    .aspectRatio(1f)
-                    .graphicsLayer {
+                // ─── Zone 2: Album Artwork Section (Centered Vertically) ───
+                val navPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                val miniArtCenterY = screenHeight.value - (navPadding.value + 36 + 12) // Approx mini-player center Y relative to bottom
+                val fullArtCenterY = screenHeight.value / 2 // Approx center
+                
+                com.vyn.player.ui.components.SharedArtworkImage(
+                    song = song,
+                    contentDescription = "Album art",
+                    modifier = Modifier
+                        .constrainAs(artSection) {
+                            top.linkTo(topSection.bottom)
+                            bottom.linkTo(playbackSection.top)
+                            start.linkTo(parent.start)
+                            end.linkTo(parent.end)
+                        }
+                        .width(screenWidth * 0.7f)
+                        .aspectRatio(1f)
+                        .graphicsLayer {
                         // Target Size: screenWidth * 0.7f
                         // Start Size: 48dp
                         val targetSizePx = screenWidth.toPx() * 0.7f
@@ -483,33 +558,33 @@ fun NowPlayingContent(
                         translationX = (startX - centerX) * (1f - expansionProgress)
                         translationY = (startY - centerY) * (1f - expansionProgress)
                     }
-                    .shadow(
-                        elevation = (artSize.value * 0.1f).coerceIn(20f, 40f).dp * expansionProgress,
-                        shape = RoundedCornerShape(lerp(10f, 20f, expansionProgress).dp),
-                        ambientColor = MaterialTheme.colorScheme.primary.copy(0.3f),
-                        spotColor = MaterialTheme.colorScheme.primary.copy(0.4f)
-                    ),
-                cornerRadius = lerp(10f, 20f, expansionProgress).dp,
-                iconSize = (artSize.value * 0.25f).coerceIn(40f, 100f).dp,
-                elevation = 0.dp
-            )
+                        .shadow(
+                            elevation = (artSize.value * 0.1f).coerceIn(20f, 40f).dp * expansionProgress,
+                            shape = RoundedCornerShape(lerp(10f, 20f, expansionProgress).dp),
+                            ambientColor = MaterialTheme.colorScheme.primary.copy(0.3f),
+                            spotColor = MaterialTheme.colorScheme.primary.copy(0.4f)
+                        ),
+                    cornerRadius = lerp(10f, 20f, expansionProgress).dp,
+                    iconSize = (artSize.value * 0.25f).coerceIn(40f, 100f).dp,
+                    elevation = 0.dp
+                )
 
-            // ─── Zone 3: Playback Controls Section (Anchored to Bottom) ───
-            Column(
-                modifier = Modifier
-                    .constrainAs(playbackSection) {
-                        bottom.linkTo(parent.bottom)
-                        start.linkTo(parent.start)
-                        end.linkTo(parent.end)
-                        width = Dimension.fillToConstraints
-                    }
-                    .padding(top = 24.dp)
-                    .graphicsLayer {
-                        alpha = expansionProgress
-                        translationY = 100f * (1f - expansionProgress)
-                    },
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+                // ─── Zone 3: Playback Controls Section (Anchored to Bottom) ───
+                Column(
+                    modifier = Modifier
+                        .constrainAs(playbackSection) {
+                            bottom.linkTo(parent.bottom)
+                            start.linkTo(parent.start)
+                            end.linkTo(parent.end)
+                            width = Dimension.fillToConstraints
+                        }
+                        .padding(top = 24.dp)
+                        .graphicsLayer {
+                            alpha = expansionProgress
+                            translationY = 100f * (1f - expansionProgress)
+                        },
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                 // Seek Bar
                 MuzicSeekBar(
                     currentPosition = currentPosition,
@@ -545,20 +620,40 @@ fun NowPlayingContent(
                         )
                     }
 
-                    // Play/Pause (64dp)
+                    // Play/Pause
+                    val playPauseInteractionSource = remember { MutableInteractionSource() }
+                    val isPlayPausePressed by playPauseInteractionSource.collectIsPressedAsState()
+                    val playPauseScale by animateFloatAsState(
+                        targetValue = if (isPlayPausePressed) 0.9f else 1f,
+                        animationSpec = tween(120),
+                        label = "buttonScale"
+                    )
+
                     Box(
                         modifier = Modifier
-                            .size(64.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary)
-                            .bounceClick { onTogglePlayPause() },
+                            .size(72.dp)
+                            .graphicsLayer {
+                                scaleX = playPauseScale
+                                scaleY = playPauseScale
+                                shadowElevation = 25f
+                                shape = CircleShape
+                            }
+                            .background(
+                                color = MaterialTheme.colorScheme.primary,
+                                shape = CircleShape
+                            )
+                            .clickable(
+                                interactionSource = playPauseInteractionSource,
+                                indication = null,
+                                onClick = onTogglePlayPause
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = if (playbackState.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            contentDescription = if (playbackState.isPlaying) "Pause" else "Play",
+                            contentDescription = null,
                             tint = Color.White,
-                            modifier = Modifier.size(34.dp)
+                            modifier = Modifier.size(32.dp)
                         )
                     }
 
@@ -637,6 +732,7 @@ fun NowPlayingContent(
                         )
                     }
                 }
+                }
             }
         }
     }
@@ -644,40 +740,52 @@ fun NowPlayingContent(
     if (showLyricsDialog) {
         AlertDialog(
             onDismissRequest = { showLyricsDialog = false },
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = Color.Transparent,
             shape = RoundedCornerShape(20.dp),
             title = {
-                Text(
-                    text = "Lyrics",
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
+                Surface(
+                    color = Color.Transparent
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Lyrics,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "Lyrics support is currently under development and will be available in a future update.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Coming soon in V2",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
+                        text = "Lyrics",
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold
                     )
+                }
+            },
+            text = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(24.dp)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Lyrics,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Lyrics support is currently under development and will be available in a future update.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Coming soon in V2",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             },
             confirmButton = {
@@ -707,7 +815,10 @@ fun BounceIconButton(
     IconButton(
         onClick = onClick,
         interactionSource = interactionSource,
-        modifier = modifier.scale(scale)
+        modifier = modifier.graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+        }
     ) {
         content()
     }

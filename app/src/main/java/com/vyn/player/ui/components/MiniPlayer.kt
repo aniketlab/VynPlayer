@@ -149,8 +149,8 @@ fun MiniPlayer(
                     MaterialTheme.colorScheme.surface
                 }).copy(alpha = 0.96f),
                 elevation = 8.dp,
-                borderWidth = 0.8.dp,
-                borderColor = Color.White.copy(alpha = 0.08f)
+                borderWidth = 0.dp,
+                borderColor = Color.Transparent
             )
     ) {
         BoxWithConstraints(
