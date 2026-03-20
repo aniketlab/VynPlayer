@@ -62,6 +62,7 @@ import com.vyn.player.ui.components.LocalArtworkRepository
 import com.vyn.player.ui.components.SongItem
 import com.vyn.player.ui.components.animateListEntry
 import com.vyn.player.ui.components.extractArtworkModel
+import com.vyn.player.ui.screens.library.SortType
 import com.vyn.player.ui.theme.getAdaptivePadding
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -108,19 +109,29 @@ private data class FastScrollMetadata(
     val totalSongItems: Int,
 )
 
-private fun Song.sectionKey(): String {
+private data class SongsTabContent(
+    val metadata: FastScrollMetadata,
+    val flatSongs: List<Song>,
+)
+
+private fun getSectionTitle(title: String): String {
     val firstChar = title.trim().firstOrNull()?.uppercaseChar() ?: '#'
     return if (firstChar in 'A'..'Z') firstChar.toString() else "#"
 }
 
 private fun buildFastScrollMetadata(
     songs: List<Song>,
+    sortType: SortType,
     hasHeaderContent: Boolean,
 ): FastScrollMetadata {
-    val sections = songs
-        .groupBy { it.sectionKey() }
-        .toSortedMap(compareBy<String> { if (it == "#") "0" else it })
-        .map { SongSection(it.key, it.value) }
+    val sections = if (sortType == SortType.TITLE) {
+        songs
+            .groupBy { getSectionTitle(it.title) }
+            .toSortedMap(compareBy<String> { if (it == "#") "ZZZ" else it })
+            .map { SongSection(it.key, it.value) }
+    } else {
+        emptyList()
+    }
 
     val songIndexToLazyIndex = ArrayList<Int>(songs.size)
     val lazyIndexToSongIndex = ArrayList<Int>(songs.size + sections.size + if (hasHeaderContent) 1 else 0)
@@ -131,16 +142,24 @@ private fun buildFastScrollMetadata(
         lazyIndex += 1
     }
 
-    var songIndex = 0
-    sections.forEach { section ->
-        lazyIndexToSongIndex += -1
-        lazyIndex += 1
+    if (sections.isNotEmpty()) {
+        var songIndex = 0
+        sections.forEach { section ->
+            lazyIndexToSongIndex += -1
+            lazyIndex += 1
 
-        repeat(section.songs.size) {
+            repeat(section.songs.size) {
+                songIndexToLazyIndex += lazyIndex
+                lazyIndexToSongIndex += songIndex
+                lazyIndex += 1
+                songIndex += 1
+            }
+        }
+    } else {
+        songs.indices.forEach { songIndex ->
             songIndexToLazyIndex += lazyIndex
             lazyIndexToSongIndex += songIndex
             lazyIndex += 1
-            songIndex += 1
         }
     }
 
@@ -251,6 +270,7 @@ private fun LibraryListPrefetchEffect(
 @Composable
 fun SongsTab(
     songs: List<Song>,
+    sortType: SortType,
     isLoading: Boolean,
     currentSongId: Long?,
     isPlaybackActive: Boolean = currentSongId != null,
@@ -298,14 +318,22 @@ fun SongsTab(
 
             else -> {
                 val adaptivePadding = getAdaptivePadding()
-                val metadata = remember(songs, headerContent != null) {
-                    buildFastScrollMetadata(songs, headerContent != null)
+                val content = remember(songs, sortType, headerContent != null) {
+                    SongsTabContent(
+                        metadata = buildFastScrollMetadata(
+                            songs = songs,
+                            sortType = sortType,
+                            hasHeaderContent = headerContent != null,
+                        ),
+                        flatSongs = songs,
+                    )
                 }
+                val metadata = content.metadata
                 val flingBehavior = rememberSmoothFlingBehavior()
 
                 LibraryListPrefetchEffect(
                     listState = listState,
-                    songs = songs,
+                    songs = content.flatSongs,
                     metadata = metadata,
                 )
 
@@ -326,24 +354,42 @@ fun SongsTab(
                             }
                         }
 
-                        metadata.sections.forEach { section ->
-                            item(key = "header_${section.letter}", contentType = CONTENT_TYPE_HEADER) {
-                                Surface(
-                                    color = MaterialTheme.colorScheme.background.copy(alpha = 0.94f),
-                                    modifier = Modifier.fillMaxWidth(),
-                                ) {
-                                    Text(
-                                        text = section.letter,
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = adaptivePadding, vertical = 10.dp),
+                        if (sortType == SortType.TITLE) {
+                            metadata.sections.forEach { section ->
+                                item(key = "header_${section.letter}", contentType = CONTENT_TYPE_HEADER) {
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.background.copy(alpha = 0.94f),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Text(
+                                            text = section.letter,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = adaptivePadding, vertical = 10.dp),
+                                        )
+                                    }
+                                }
+
+                                itemsIndexed(
+                                    items = section.songs,
+                                    key = { _, song -> song.id },
+                                    contentType = { _, _ -> CONTENT_TYPE_ROW },
+                                ) { index, song ->
+                                    SongItem(
+                                        song = song,
+                                        isPlaying = song.id == currentSongId,
+                                        isPlaybackActive = isPlaybackActive,
+                                        onSongClick = { onSongClick(song) },
+                                        onAction = onSongAction,
+                                        isScrolling = false,
+                                        modifier = songRowModifier.animateListEntry(index, delay = 15),
                                     )
                                 }
                             }
-
+                        } else {
                             itemsIndexed(
-                                items = section.songs,
+                                items = content.flatSongs,
                                 key = { _, song -> song.id },
                                 contentType = { _, _ -> CONTENT_TYPE_ROW },
                             ) { index, song ->

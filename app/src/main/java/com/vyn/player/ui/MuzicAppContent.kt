@@ -53,9 +53,6 @@ fun MuzicAppContent(
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
-
-    val hiddenRoutes = setOf(Screen.Splash.route)
-    val showBottomNav = currentDestination?.route != null && currentDestination.route !in hiddenRoutes
     val playbackProgress by viewModel.playbackProgress.collectAsStateWithLifecycle()
     val playbackState by viewModel.playbackState.collectAsStateWithLifecycle()
     val selectedSong by viewModel.selectedSong.collectAsStateWithLifecycle()
@@ -65,6 +62,11 @@ fun MuzicAppContent(
     val activity = context as? Activity
 
     val isPlayerExpanded by viewModel.isPlayerExpanded.collectAsStateWithLifecycle()
+    val currentIsFav by viewModel.isFavorite.collectAsStateWithLifecycle()
+    val currentRoute by rememberUpdatedState(currentDestination?.route)
+    val showBottomNav by remember(currentRoute) {
+        derivedStateOf { !currentRoute.isNullOrEmpty() }
+    }
     val expansionProgress by animateFloatAsState(
         targetValue = if (isPlayerExpanded) 1f else 0f,
         animationSpec = tween(
@@ -101,7 +103,6 @@ fun MuzicAppContent(
                 
                 // ─── BOTTOM TABS BACK NAVIGATION ───
                 // Composed AFTER NavGraph so it intercepts back presses for main tabs
-                val currentRoute = currentDestination?.route
                 val isBottomNavTab = BottomNavScreens.any { it.route == currentRoute }
                 
                 BackHandler(enabled = !isPlayerExpanded && isBottomNavTab) {
@@ -208,6 +209,9 @@ fun MuzicAppContent(
                                                 viewModel.requestScrollToTop(screen.route)
                                             } else {
                                                 // ─── NAVIGATE TO DIFFERENT TAB ───
+                                                if (currentRoute == Screen.Settings.route) {
+                                                    navController.popBackStack()
+                                                }
                                                 navController.navigate(screen.route) {
                                                     popUpTo(navController.graph.startDestinationId) {
                                                         saveState = true
@@ -254,8 +258,6 @@ fun MuzicAppContent(
 
             // ─── FULL PLAYER OVERLAY ───
             if (expansionProgress > 0.001f) {
-                val currentIsFav by viewModel.isFavorite.collectAsStateWithLifecycle()
-
                 // This BackHandler is composed AFTER NavHost, so it has
                 // the HIGHEST priority and intercepts back before NavController.
                 BackHandler(enabled = isPlayerExpanded) {

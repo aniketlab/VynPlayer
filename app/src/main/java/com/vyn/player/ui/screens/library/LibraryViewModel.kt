@@ -1,5 +1,9 @@
 package com.vyn.player.ui.screens.library
 
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vyn.player.data.model.Album
@@ -15,40 +19,45 @@ import com.vyn.player.player.PlaybackState
 import com.vyn.player.data.repository.SmartMixRepository
 import com.vyn.player.data.local.dao.SongPlayCount
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
-enum class LibrarySortOption {
-    AZ,
-    RECENTLY_ADDED,
+enum class SortType {
+    TITLE,
+    RECENT,
     ARTIST,
     DURATION
 }
 
-private fun Song.normalizedTitleForSort(): String {
-    val title = title.lowercase()
-    return when {
-        title.startsWith("the ") -> title.substring(4)
-        title.startsWith("a ") -> title.substring(2)
-        title.startsWith("an ") -> title.substring(3)
-        else -> title
-    }.trim()
+private fun getSectionTitle(title: String): String {
+    val firstChar = title.trim().firstOrNull()?.uppercaseChar() ?: '#'
+    return if (firstChar in 'A'..'Z') firstChar.toString() else "#"
 }
 
-private fun Song.normalizedArtistForSort(): String {
-    return artist.trim().lowercase().ifBlank { "unknown artist" }
-}
-
-private fun List<Song>.sortedFor(option: LibrarySortOption): List<Song> {
-    return when (option) {
-        LibrarySortOption.AZ -> sortedWith(compareBy<Song> { it.normalizedTitleForSort() }.thenBy { it.id })
-        LibrarySortOption.RECENTLY_ADDED -> sortedWith(compareByDescending<Song> { it.dateAdded }.thenBy { it.normalizedTitleForSort() })
-        LibrarySortOption.ARTIST -> sortedWith(compareBy<Song> { it.normalizedArtistForSort() }.thenBy { it.normalizedTitleForSort() }.thenBy { it.id })
-        LibrarySortOption.DURATION -> sortedWith(compareByDescending<Song> { it.duration }.thenBy { it.normalizedTitleForSort() })
+private fun List<Song>.sortedFor(sortType: SortType): List<Song> {
+    return when (sortType) {
+        SortType.TITLE -> sortedWith(
+            compareBy<Song> {
+                val section = getSectionTitle(it.title)
+                if (section == "#") "ZZZ" else section
+            }.thenBy {
+                it.title.lowercase()
+            }.thenBy {
+                it.id
+            }
+        )
+        SortType.RECENT -> sortedByDescending { it.dateAdded }
+        SortType.ARTIST -> sortedWith(compareBy<Song> { it.artist.lowercase() }.thenBy { it.title.lowercase() }.thenBy { it.id })
+        SortType.DURATION -> sortedWith(compareByDescending<Song> { it.duration }.thenBy { it.title.lowercase() }.thenBy { it.id })
     }
 }
 
+@Immutable
 data class LibraryUiState(
     val songs: List<Song> = emptyList(),
     val displayedSongs: List<Song> = emptyList(),
@@ -67,7 +76,7 @@ data class LibraryUiState(
     val recentSongs: List<Song> = emptyList(),
     val topSongs: List<SongPlayCount> = emptyList(),
     val smartMixSongs: List<Song> = emptyList(),
-    val selectedSortOption: LibrarySortOption = LibrarySortOption.AZ
+    val sortType: SortType = SortType.TITLE
 )
 
 @HiltViewModel
@@ -76,96 +85,112 @@ class LibraryViewModel @Inject constructor(
     private val playlistRepository: PlaylistRepository,
     private val userPreferencesManager: UserPreferencesManager,
     private val smartMixRepository: SmartMixRepository,
+    private val mediaStoreScanner: com.vyn.player.data.repository.MediaStoreScanner,
     val playbackManager: PlaybackManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LibraryUiState())
     val uiState: StateFlow<LibraryUiState> = _uiState.asStateFlow()
+    private var currentSortType by mutableStateOf(SortType.TITLE)
+        private set
+    var isRefreshing by mutableStateOf(false)
+        private set
+    var songs by mutableStateOf<List<Song>>(emptyList())
+        private set
+    private var refreshJob: Job? = null
 
     val playbackState: StateFlow<PlaybackState> = playbackManager.playbackState
 
     init {
-        // 1. Observe User Preferences
-        viewModelScope.launch {
-            combine(
-                userPreferencesManager.userDisplayName,
-                userPreferencesManager.userSubtitle,
-                userPreferencesManager.userAvatarUrl
-            ) { name: String, sub: String, avatar: String? ->
-                Triple(name, sub, avatar)
-            }.collect { (name, sub, avatar) ->
-                _uiState.update { 
-                    it.copy(
-                        userDisplayName = name,
-                        userSubtitle = sub,
-                        userAvatarUrl = avatar
-                    )
-                }
-            }
-        }
-
-        // 2. Observe Songs (Reactive)
-        musicRepository.getAllSongs()
-            .onEach { songs ->
-                _uiState.update {
-                    it.copy(
-                        songs = songs,
-                        displayedSongs = songs.sortedFor(it.selectedSortOption),
-                        isLoading = false
-                    )
-                }
-            }
-            .launchIn(viewModelScope)
-
-        // 3. Observe Albums (Reactive)
-        musicRepository.getAllAlbums()
-            .onEach { albums -> _uiState.update { it.copy(albums = albums) } }
-            .launchIn(viewModelScope)
-
-        // 4. Observe Artists (Reactive)
-        musicRepository.getAllArtists()
-            .onEach { artists -> _uiState.update { it.copy(artists = artists) } }
-            .launchIn(viewModelScope)
-
-        // 5. Observe Folders (Reactive)
-        musicRepository.getAllFolders()
-            .onEach { folders -> _uiState.update { it.copy(folders = folders) } }
-            .launchIn(viewModelScope)
-
-        // 6. Observe Playlists (Reactive)
-        playlistRepository.getAllPlaylists()
-            .onEach { playlists -> _uiState.update { it.copy(playlists = playlists) } }
-            .launchIn(viewModelScope)
-        
-        // 7. Recent Songs
-        viewModelScope.launch {
-            kotlinx.coroutines.flow.combine(
-                musicRepository.getAllSongs(),
-                musicRepository.getRecentSongs(50)
-            ) { allSongs, recentIds ->
-                recentIds.mapNotNull { id -> allSongs.find { it.id == id } }
-            }.collect { recentSongs ->
-                _uiState.update { it.copy(recentSongs = recentSongs.distinctBy { it.id }.take(50)) }
-            }
-        }
-
-        // 8. Top Songs
-        viewModelScope.launch {
-            kotlinx.coroutines.flow.combine(
-                musicRepository.getAllSongs(),
-                musicRepository.getTopSongs(50)
-            ) { allSongs, topCounters ->
-                topCounters.filter { counter -> allSongs.any { it.id == counter.songId } }
-            }.collect { validTopSongs ->
-                _uiState.update { it.copy(topSongs = validTopSongs) }
-            }
-        }
-
+        observeLibraryState()
         refreshSmartMix()
     }
 
+    private fun observeLibraryState() {
+        val libraryDataFlow = combine(
+            musicRepository.getAllSongs(),
+            musicRepository.getAllAlbums(),
+            musicRepository.getAllArtists(),
+            musicRepository.getAllFolders(),
+            playlistRepository.getAllPlaylists()
+        ) { songs, albums, artists, folders, playlists ->
+            LibraryData(
+                songs = songs,
+                albums = albums,
+                artists = artists,
+                folders = folders,
+                playlists = playlists
+            )
+        }
+
+        val playbackDataFlow = combine(
+            musicRepository.getRecentSongs(50),
+            musicRepository.getTopSongs(50)
+        ) { recentIds, topSongs ->
+            PlaybackLibraryData(recentIds = recentIds, topSongs = topSongs)
+        }
+
+        val userProfileFlow = combine(
+            userPreferencesManager.userDisplayName,
+            userPreferencesManager.userSubtitle,
+            userPreferencesManager.userAvatarUrl
+        ) { name, subtitle, avatar ->
+            UserProfileData(name = name, subtitle = subtitle, avatar = avatar)
+        }
+
+        combine(libraryDataFlow, playbackDataFlow, userProfileFlow) { libraryData, playbackData, userProfile ->
+            val selectedSort = currentSortType
+            val songsById = libraryData.songs.associateBy(Song::id)
+            val sortedSongs = libraryData.songs.sortedFor(selectedSort)
+            songs = libraryData.songs
+
+            LibraryUiState(
+                songs = libraryData.songs,
+                displayedSongs = sortedSongs,
+                albums = libraryData.albums,
+                artists = libraryData.artists,
+                playlists = libraryData.playlists,
+                folders = libraryData.folders,
+                isLoading = false,
+                selectedTab = _uiState.value.selectedTab,
+                searchQuery = _uiState.value.searchQuery,
+                searchResults = _uiState.value.searchResults,
+                userDisplayName = userProfile.name,
+                userSubtitle = userProfile.subtitle,
+                userAvatarUrl = userProfile.avatar,
+                recentSongs = playbackData.recentIds.mapNotNull(songsById::get).distinctBy(Song::id).take(50),
+                topSongs = playbackData.topSongs.filter { songsById.containsKey(it.songId) },
+                smartMixSongs = _uiState.value.smartMixSongs,
+                sortType = selectedSort,
+                error = _uiState.value.error,
+            )
+        }
+            .distinctUntilChanged()
+            .onEach { newState -> _uiState.value = newState }
+            .launchIn(viewModelScope)
+    }
+
+    private data class LibraryData(
+        val songs: List<Song>,
+        val albums: List<Album>,
+        val artists: List<Artist>,
+        val folders: List<Folder>,
+        val playlists: List<Playlist>
+    )
+
+    private data class PlaybackLibraryData(
+        val recentIds: List<Long>,
+        val topSongs: List<SongPlayCount>
+    )
+
+    private data class UserProfileData(
+        val name: String,
+        val subtitle: String,
+        val avatar: String?
+    )
+
     fun refreshSmartMix(force: Boolean = false) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val mix = smartMixRepository.getLatestMixSongs(force)
             _uiState.update { it.copy(smartMixSongs = mix) }
         }
@@ -204,11 +229,12 @@ class LibraryViewModel @Inject constructor(
         playbackManager.playQueue(songList, index)
     }
 
-    fun setSortOption(option: LibrarySortOption) {
+    fun setSortType(sortType: SortType) {
+        currentSortType = sortType
         _uiState.update {
             it.copy(
-                selectedSortOption = option,
-                displayedSongs = it.songs.sortedFor(option)
+                sortType = sortType,
+                displayedSongs = it.songs.sortedFor(sortType)
             )
         }
     }
@@ -236,7 +262,7 @@ class LibraryViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         songs = songs,
-                        displayedSongs = songs.sortedFor(it.selectedSortOption)
+                        displayedSongs = songs.sortedFor(currentSortType)
                     )
                 }
             }
@@ -256,9 +282,31 @@ class LibraryViewModel @Inject constructor(
     }
 
     fun refreshLibrary() {
-        viewModelScope.launch {
-            musicRepository.refreshLibrary()
-            loadLibrary()
+        if (isRefreshing) return
+
+        refreshJob?.cancel()
+
+        refreshJob = viewModelScope.launch {
+            isRefreshing = true
+
+            val timeoutJob = launch {
+                delay(5000)
+                if (isRefreshing) {
+                    isRefreshing = false
+                }
+            }
+
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    mediaStoreScanner.scanLibrary()
+                }
+
+                songs = result
+            } catch (_: Exception) {
+            } finally {
+                timeoutJob.cancel()
+                isRefreshing = false
+            }
         }
     }
 
@@ -268,7 +316,7 @@ class LibraryViewModel @Inject constructor(
             _uiState.update { it.copy(searchResults = emptyList()) }
             return
         }
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val results = musicRepository.searchSongs(query)
             _uiState.update { it.copy(searchResults = results) }
         }

@@ -1,18 +1,22 @@
 package com.vyn.player.data.repository
 
+import android.Manifest
 import android.content.ContentUris
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.media.MediaMetadataRetriever
 import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
+import androidx.core.content.ContextCompat
 import com.vyn.player.data.model.Album
 import com.vyn.player.data.model.Artist
 import com.vyn.player.data.model.Folder
 import com.vyn.player.data.model.Song
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import java.io.File
@@ -72,6 +76,64 @@ class MediaStoreScanner @Inject constructor(
         MediaStore.Audio.Media.MIME_TYPE,
         MediaStore.Audio.Media.IS_MUSIC
     )
+
+    suspend fun scanLibrary(scanContext: Context = context): List<Song> = withContext(Dispatchers.IO) {
+        val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_AUDIO
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+
+        if (ContextCompat.checkSelfPermission(scanContext, permission) != PackageManager.PERMISSION_GRANTED) {
+            return@withContext emptyList()
+        }
+
+        withTimeoutOrNull(4000) {
+            val songs = mutableListOf<Song>()
+            val uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+            val projection = arrayOf(
+                MediaStore.Audio.Media._ID,
+                MediaStore.Audio.Media.TITLE,
+                MediaStore.Audio.Media.ARTIST,
+                MediaStore.Audio.Media.DATA
+            )
+            val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
+
+            val cursor = scanContext.contentResolver.query(
+                uri,
+                projection,
+                selection,
+                null,
+                null
+            ) ?: return@withTimeoutOrNull emptyList<Song>()
+
+            cursor.use {
+                val idColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+                val titleColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+                val artistColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+                val dataColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+
+                while (it.moveToNext()) {
+                    val id = it.getLong(idColumn)
+                    val path = it.getString(dataColumn).orEmpty()
+                    songs.add(
+                        Song(
+                            id = id,
+                            title = it.getString(titleColumn).orEmpty(),
+                            artist = it.getString(artistColumn).orEmpty(),
+                            album = "",
+                            albumId = 0L,
+                            duration = 0L,
+                            path = path,
+                            uri = ContentUris.withAppendedId(uri, id)
+                        )
+                    )
+                }
+            }
+
+            songs
+        } ?: emptyList()
+    }
 
     /**
      * FAST SCAN: Queries MediaStore for essential fields only.

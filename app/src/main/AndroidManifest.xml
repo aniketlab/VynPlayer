@@ -42,7 +42,7 @@
             android:name=".MainActivity"
             android:screenOrientation="portrait"
             android:exported="true"
-            android:theme="@style/Theme.VynPlayer.Splash">
+            android:theme="@style/Theme.VYNPlayer.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

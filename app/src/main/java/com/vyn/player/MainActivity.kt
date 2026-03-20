@@ -41,7 +41,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
-        val splashScreen = installSplashScreen()
+        installSplashScreen()
+        setTheme(R.style.Theme_VYNPlayer)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 

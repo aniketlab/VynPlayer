@@ -5,12 +5,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.*
 import androidx.compose.material.icons.rounded.*
@@ -52,7 +50,7 @@ fun HomeScreen(
     appViewModel: com.vyn.player.ui.MainViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val listState = rememberLazyListState()
 
     // ─── TAP TO TOP LISTENER ───
     LaunchedEffect(Unit) {
@@ -61,14 +59,6 @@ fun HomeScreen(
                 listState.animateScrollToItem(0)
             }
         }
-    }
-
-    val calendar = Calendar.getInstance()
-    val greeting = when (calendar.get(Calendar.HOUR_OF_DAY)) {
-        in 0..11 -> "Good Morning"
-        in 12..16 -> "Good Afternoon"
-        in 17..20 -> "Good Evening"
-        else -> "Good Night"
     }
 
     BoxWithConstraints(
@@ -81,16 +71,25 @@ fun HomeScreen(
         val spacingSmall = (adaptivePadding.value * 0.5f).dp
         val spacingMedium = (adaptivePadding.value * 0.75f).dp
         val spacingSection = (adaptivePadding.value * 1.5f).dp
+        val greeting = remember {
+            when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
+                in 0..11 -> "Good Morning"
+                in 12..16 -> "Good Afternoon"
+                in 17..20 -> "Good Evening"
+                else -> "Good Night"
+            }
+        }
 
-    val recentSongsInfo = remember(uiState.recentSongs, uiState.songs) {
-        val filtered = uiState.recentSongs.take(10)
-        filtered
+    val recentSongsInfo = remember(uiState.recentSongs) { uiState.recentSongs.take(10) }
+
+    val songsById = remember(uiState.songs) { uiState.songs.associateBy(Song::id) }
+
+    val mostPlayedSongs = remember(uiState.topSongs, songsById) {
+        uiState.topSongs.mapNotNull { songsById[it.songId] }.take(10)
     }
 
-    val mostPlayedSongs = remember(uiState.topSongs, uiState.songs) {
-        val mostPlayedIds = uiState.topSongs.map { it.songId }
-        mostPlayedIds.mapNotNull { id -> uiState.songs.find { it.id == id } }.take(10)
-    }
+    val playRecent by rememberUpdatedState<(Song) -> Unit> { song -> viewModel.playSong(song, uiState.recentSongs) }
+    val playMostPlayed by rememberUpdatedState<(Song) -> Unit> { song -> viewModel.playSong(song, mostPlayedSongs) }
 
     val smartMixSongs = remember(uiState.smartMixSongs) {
         uiState.smartMixSongs.take(4)
@@ -261,7 +260,7 @@ fun HomeScreen(
                     items(recentSongs, key = { it.id }) { song ->
                         SquareSongCard(
                             song = song,
-                            onClick = { viewModel.playSong(song, uiState.recentSongs) },
+                            onClick = { playRecent(song) },
                             modifier = Modifier.animateListEntry(0) // 0 delay for horizontal, let user see it
                         )
                     }
@@ -324,7 +323,7 @@ fun HomeScreen(
                     items(topLimited, key = { it.id }) { song ->
                         SquareSongCard(
                             song = song,
-                            onClick = { viewModel.playSong(song, mostPlayedSongs) },
+                            onClick = { playMostPlayed(song) },
                             modifier = Modifier.animateListEntry(0)
                         )
                     }

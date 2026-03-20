@@ -1,12 +1,10 @@
 package com.vyn.player.ui.screens.splash
 
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -19,9 +17,11 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vyn.player.R
 import com.vyn.player.ui.theme.getAdaptivePadding
 import kotlinx.coroutines.delay
 
@@ -96,11 +96,10 @@ fun SplashScreen(onNavigateToLibrary: () -> Unit) {
                         .shadow(8.dp, RoundedCornerShape(22.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.MusicNote,
+                    Image(
+                        painter = painterResource(id = R.mipmap.ic_launcher),
                         contentDescription = null,
-                        tint = Color(0xFF004D40),
-                        modifier = Modifier.size(44.dp)
+                        modifier = Modifier.size(56.dp)
                     )
                 }
             }

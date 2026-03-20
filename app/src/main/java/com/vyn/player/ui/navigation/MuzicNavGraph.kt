@@ -15,7 +15,6 @@ import com.vyn.player.ui.screens.home.SmartMixScreen
 import com.vyn.player.ui.screens.library.LibraryScreen
 import com.vyn.player.ui.screens.search.SearchScreen
 import com.vyn.player.ui.screens.settings.SettingsScreen
-import com.vyn.player.ui.screens.splash.SplashScreen
 import com.vyn.player.ui.screens.discover.DiscoverScreen
 import com.vyn.player.ui.screens.profile.ProfileScreen
 import com.vyn.player.ui.screens.profile.FavoritesScreen
@@ -29,7 +28,7 @@ import androidx.navigation.navArgument
 @Composable
 fun MuzicNavGraph(
     navController: NavHostController,
-    startDestination: String = Screen.Splash.route
+    startDestination: String = Screen.Home.route
 ) {
     NavHost(
         navController = navController,
@@ -41,16 +40,6 @@ fun MuzicNavGraph(
         popExitTransition = NavigationTransitions.popExitTransition,
         modifier = Modifier.fillMaxSize()
     ) {
-        composable(Screen.Splash.route) {
-            SplashScreen(
-                onNavigateToLibrary = {
-                    navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Splash.route) { inclusive = true }
-                    }
-                }
-            )
-        }
-
         // ─── Bottom Tab Screens (use crossfade, not slide) ───
         composable(
             Screen.Home.route,

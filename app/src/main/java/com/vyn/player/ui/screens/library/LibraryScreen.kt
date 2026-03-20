@@ -44,6 +44,8 @@ fun LibraryScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val playbackState by viewModel.playbackState.collectAsStateWithLifecycle()
+    val songs = viewModel.songs
+    val isRefreshing = viewModel.isRefreshing
     val context = LocalContext.current
 
     var hasPermission by remember {
@@ -82,13 +84,15 @@ fun LibraryScreen(
     var showSortMenu by remember { mutableStateOf(false) }
     val sortOptions = remember {
         listOf(
-            LibrarySortOption.AZ to "A-Z",
-            LibrarySortOption.RECENTLY_ADDED to "Recently Added",
-            LibrarySortOption.ARTIST to "Artist",
-            LibrarySortOption.DURATION to "Duration"
+            SortType.TITLE to "A-Z",
+            SortType.RECENT to "Recently Added",
+            SortType.ARTIST to "Artist",
+            SortType.DURATION to "Duration"
         )
     }
-    val selectedSortLabel = sortOptions.firstOrNull { it.first == uiState.selectedSortOption }?.second ?: "A-Z"
+    val selectedSortLabel = sortOptions.firstOrNull { it.first == uiState.sortType }?.second ?: "A-Z"
+
+    val displayedSongs = uiState.displayedSongs
 
     Scaffold(
         modifier = Modifier
@@ -110,11 +114,19 @@ fun LibraryScreen(
                     },
                     actions = {
                         IconButton(onClick = { viewModel.refreshLibrary() }) {
-                            Icon(
-                                imageVector = Icons.Rounded.Refresh,
-                                contentDescription = "Refresh",
-                                tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-                            )
+                            if (isRefreshing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Rounded.Refresh,
+                                    contentDescription = "Refresh",
+                                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                                )
+                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -188,11 +200,12 @@ fun LibraryScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     SongsTab(
-                        songs = uiState.displayedSongs,
-                        isLoading = uiState.isLoading,
+                        songs = displayedSongs,
+                        sortType = uiState.sortType,
+                        isLoading = uiState.isLoading || isRefreshing,
                         currentSongId = playbackState.currentSong?.id,
                         isPlaybackActive = playbackState.isPlaying,
-                        onSongClick = { song -> songActionDispatcher(SongAction.Play(song, uiState.displayedSongs)) },
+                        onSongClick = { song -> songActionDispatcher(SongAction.Play(song, displayedSongs)) },
                         onSongAction = songActionDispatcher,
                         headerContent = {
                             Column(
@@ -282,11 +295,11 @@ fun LibraryScreen(
                                                 DropdownMenuItem(
                                                     text = { Text(label) },
                                                     onClick = {
-                                                        viewModel.setSortOption(option)
+                                                        viewModel.setSortType(option)
                                                         showSortMenu = false
                                                     },
                                                     trailingIcon = {
-                                                        if (option == uiState.selectedSortOption) {
+                                                        if (option == uiState.sortType) {
                                                             Icon(
                                                                 imageVector = Icons.Rounded.Check,
                                                                 contentDescription = null

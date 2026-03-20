@@ -7,18 +7,24 @@ import coil.imageLoader
 import coil.request.ImageRequest
 import com.vyn.player.data.model.Song
 import com.vyn.player.player.PlaybackManager
+import com.vyn.player.player.PlaybackState
 import com.vyn.player.ui.actions.SongAction
 import com.vyn.player.ui.actions.SongActionHandler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
@@ -41,33 +47,48 @@ class MainViewModel @Inject constructor(
     val selectedSong = songActionHandler.selectedSong
     val showSongDetails = songActionHandler.showSongDetails
 
+    val playbackState = playbackManager.playbackState.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        PlaybackState()
+    )
+
     init {
         observeCurrentSong()
     }
 
     private fun observeCurrentSong() {
         viewModelScope.launch {
-            playbackManager.playbackState.collectLatest { state ->
-                state.currentSong?.let { song ->
-                    preloadArtwork(song)
-                    musicRepository.isFavorite(song.id).collectLatest { isFav ->
-                        _isFavorite.value = isFav
+            playbackState
+                .map { it.currentSong }
+                .distinctUntilChanged()
+                .flatMapLatest { song ->
+                    if (song == null) {
+                        flowOf(false)
+                    } else {
+                        preloadArtwork(song)
+                        musicRepository.isFavorite(song.id)
                     }
-                } ?: run {
-                    _isFavorite.value = false
                 }
-            }
+                .collect { isFav ->
+                    _isFavorite.value = isFav
+                }
         }
     }
 
     private fun preloadArtwork(song: Song) {
         if (song.isExternalSource) return
 
-        val request = ImageRequest.Builder(context)
-            .data(song.albumArtUri)
-            .size(512)
-            .build()
-        context.imageLoader.enqueue(request)
+        viewModelScope.launch(Dispatchers.IO) {
+            val request = ImageRequest.Builder(context)
+                .data(song.albumArtUri)
+                .size(300)
+                .crossfade(true)
+                .build()
+            withContext(Dispatchers.Main) {
+                context.imageLoader.enqueue(request)
+            }
+        }
     }
 
     fun setPlayerExpanded(expanded: Boolean) {
@@ -108,12 +129,6 @@ class MainViewModel @Inject constructor(
             _scrollToTopRequest.emit(route)
         }
     }
-
-    val playbackState = playbackManager.playbackState.stateIn(
-        viewModelScope,
-        SharingStarted.WhileSubscribed(5000),
-        com.vyn.player.player.PlaybackState()
-    )
 
     val playbackProgress = playbackManager.playbackProgress.stateIn(
         viewModelScope,

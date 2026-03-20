@@ -3,12 +3,18 @@
     <style name="Theme.VynPlayer" parent="android:Theme.Material.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:windowBackground">#102218</item>
+        <item name="android:windowBackground">@color/black</item>
         <item name="android:enforceNavigationBarContrast">false</item>
     </style>
 
+    <style name="Theme.VYNPlayer" parent="Theme.VynPlayer" />
+
     <style name="Theme.VynPlayer.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">#102218</item>
+        <item name="android:windowSplashScreenBackground">@color/black</item>
+        <item name="android:windowBackground">@color/black</item>
+        <item name="windowSplashScreenBackground">@color/black</item>
         <item name="postSplashScreenTheme">@style/Theme.VynPlayer</item>
     </style>
+
+    <style name="Theme.VYNPlayer.Splash" parent="Theme.VynPlayer.Splash" />
 </resources>

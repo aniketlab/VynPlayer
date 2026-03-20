@@ -2,11 +2,15 @@ package com.vyn.player.ui.screens.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.vyn.player.BuildConfig
 import com.vyn.player.data.model.GithubRelease
 import com.vyn.player.data.repository.MusicRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,6 +40,12 @@ class SettingsViewModel @Inject constructor(
     private val musicRepository: MusicRepository
 ) : ViewModel() {
 
+    var isCheckingUpdate by mutableStateOf(false)
+        private set
+
+    var updateMessage by mutableStateOf<String?>(null)
+        private set
+
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
     
@@ -47,8 +57,11 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun checkForUpdates(forceRefresh: Boolean = false) {
+    fun checkForUpdate(forceRefresh: Boolean = false) {
         viewModelScope.launch {
+            isCheckingUpdate = true
+            updateMessage = null
+
             _uiState.value = _uiState.value.copy(
                 isCheckingForUpdates = true,
                 updateErrorMessage = null,
@@ -60,6 +73,13 @@ class SettingsViewModel @Inject constructor(
                 is UpdateCheckResult.Success -> {
                     val release = result.release
                     val updateAvailable = isUpdateAvailable(BuildConfig.VERSION_NAME, release.tag_name)
+
+                    updateMessage = if (updateAvailable) {
+                        "Update Available"
+                    } else {
+                        "You're on latest version"
+                    }
+
                     _uiState.value = _uiState.value.copy(
                         isCheckingForUpdates = false,
                         latestRelease = release,
@@ -71,6 +91,7 @@ class SettingsViewModel @Inject constructor(
                 }
 
                 UpdateCheckResult.NoReleasesYet -> {
+                    updateMessage = "You're on latest version"
                     _uiState.value = _uiState.value.copy(
                         isCheckingForUpdates = false,
                         latestRelease = null,
@@ -82,6 +103,7 @@ class SettingsViewModel @Inject constructor(
                 }
 
                 UpdateCheckResult.NoInternet -> {
+                    updateMessage = "No internet connection"
                     _uiState.value = _uiState.value.copy(
                         isCheckingForUpdates = false,
                         updateErrorMessage = "No internet",
@@ -90,6 +112,7 @@ class SettingsViewModel @Inject constructor(
                 }
 
                 is UpdateCheckResult.Error -> {
+                    updateMessage = "Update check failed"
                     _uiState.value = _uiState.value.copy(
                         isCheckingForUpdates = false,
                         updateErrorMessage = result.message,
@@ -97,7 +120,14 @@ class SettingsViewModel @Inject constructor(
                     )
                 }
             }
+
+            delay(1200)
+            isCheckingUpdate = false
         }
+    }
+
+    fun clearUpdateMessage() {
+        updateMessage = null
     }
 
     fun dismissUpdateDialog() {

@@ -5,7 +5,9 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -18,7 +20,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -36,13 +37,15 @@ import com.vyn.player.R
 import com.vyn.player.data.model.GithubRelease
 import com.vyn.player.ui.theme.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isChecking = viewModel.isCheckingUpdate
+    val message = viewModel.updateMessage
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
 
@@ -54,10 +57,10 @@ fun SettingsScreen(
     val adaptivePadding = getAdaptivePadding()
     val listState = rememberLazyListState()
 
-    LaunchedEffect(uiState.infoMessage) {
-        uiState.infoMessage?.let {
+    LaunchedEffect(message) {
+        message?.let {
             snackbarHostState.showSnackbar(it)
-            viewModel.clearInfoMessage()
+            viewModel.clearUpdateMessage()
         }
     }
 
@@ -170,13 +173,13 @@ fun SettingsScreen(
                             icon = Icons.Rounded.SystemUpdate,
                             iconTint = MaterialTheme.colorScheme.tertiary,
                             title = "Check for Updates",
-                            subtitle = if (uiState.isCheckingForUpdates) {
+                            subtitle = if (isChecking) {
                                 "Checking latest version from server..."
                             } else {
                                 "Check latest version from server"
                             },
                             trailing = {
-                                if (uiState.isCheckingForUpdates) {
+                                if (isChecking) {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(18.dp),
                                         strokeWidth = 2.dp,
@@ -192,8 +195,8 @@ fun SettingsScreen(
                                 }
                             },
                             onClick = {
-                                if (!uiState.isCheckingForUpdates) {
-                                    viewModel.checkForUpdates()
+                                if (!isChecking) {
+                                    viewModel.checkForUpdate()
                                 }
                             }
                         )
@@ -247,69 +250,78 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
             containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(24.dp),
             title = null,
             text = {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // App icon
-                    Box(
-                        modifier = Modifier
-                            .size(80.dp)
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(
-                                Brush.linearGradient(
-                                    colors = listOf(
-                                        MaterialTheme.colorScheme.primary,
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    )
-                                )
-                            ),
-                        contentAlignment = Alignment.Center
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        tonalElevation = 0.dp
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.MusicNote,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(40.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.MusicNote,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(40.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "VYN Player",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = BuildConfig.VERSION_NAME,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        AboutTagChip(
+                            label = "No Ads"
+                        )
+                        AboutTagChip(
+                            label = "Offline"
+                        )
+                        AboutTagChip(
+                            label = "Pure Music"
                         )
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
-                        text = "VYN Player",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    Text(
-                        text = stringResource(R.string.app_version),
+                        text = "A clean offline music player with a simple experience, modern design, and smooth everyday playback.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Features badges
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        FeatureBadge("No Ads", MaterialTheme.colorScheme.primary)
-                        FeatureBadge("Offline", MaterialTheme.colorScheme.secondary)
-                        FeatureBadge("Pure Music", MaterialTheme.colorScheme.tertiary)
-                    }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    Text(
-                        text = "A premium offline music player crafted for audiophiles who value clean design and pure sound quality.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                        textAlign = TextAlign.Center
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                        textAlign = TextAlign.Center,
+                        lineHeight = 20.sp,
+                        modifier = Modifier.padding(horizontal = 12.dp)
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -333,11 +345,18 @@ fun SettingsScreen(
                             uriHandler.openUri("https://github.com/aniketlab")
                         }
                     )
+
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showAboutDialog = false }) {
-                    Text("Close", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = { showAboutDialog = false }) {
+                        Text("Close", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         )
@@ -456,7 +475,7 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.dismissRetryDialog()
-                    viewModel.checkForUpdates(forceRefresh = true)
+                    viewModel.checkForUpdate(forceRefresh = true)
                 }) {
                     Text("Retry", fontWeight = FontWeight.Bold)
                 }
@@ -466,6 +485,31 @@ fun SettingsScreen(
                     Text("Cancel", fontWeight = FontWeight.Bold)
                 }
             }
+        )
+    }
+}
+
+@Composable
+private fun AboutTagChip(
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.wrapContentWidth(),
+        shape = RoundedCornerShape(50),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        tonalElevation = 2.dp
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier
+                .padding(horizontal = 10.dp, vertical = 8.dp)
         )
     }
 }
@@ -566,22 +610,6 @@ private fun SettingsItem(
 }
 
 @Composable
-private fun FeatureBadge(text: String, color: androidx.compose.ui.graphics.Color) {
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = color.copy(alpha = 0.15f)
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            color = color,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-        )
-    }
-}
-
-@Composable
 private fun PrivacyPolicySection(title: String, description: String) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
@@ -654,6 +682,13 @@ private fun UpdateAvailableDialog(
         }
     )
 }
+
+
+
+
+
+
+
 
 
 
